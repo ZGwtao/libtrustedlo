@@ -19,6 +19,11 @@ ifndef CPU
 $(error CPU is not set)
 endif
 
+ifndef LIBTRUSTEDLO_PATH
+$(error LIBTRUSTEDLO_PATH is not set)
+endif
+
+
 CC ?= $(TOOLCHAIN)-gcc
 AR ?= $(TOOLCHAIN)-ar
 
@@ -28,7 +33,7 @@ TSLDR_OBJS :=  \
 	trustedloader.o \
 	caputils.o acrtutils.o miscutils.o
 
-LIBTSLDR_SRC_DIR ?= $(CURDIR)
+LIBTSLDR_SRC_DIR ?= $(LIBTRUSTEDLO_PATH)
 LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
 LIBTSLDR_OBJS := $(addprefix $(LIBTSLDR_BUILD_DIR)/,$(TSLDR_OBJS))
 LIBTSLDR := $(LIBTSLDR_BUILD_DIR)/libtrustedlo.a
