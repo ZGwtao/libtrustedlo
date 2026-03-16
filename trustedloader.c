@@ -253,7 +253,7 @@ void tsldr_main_monitor_privilege_pd(seL4_Word cid)
     tsldr_caputil_pd_privilege(cid);
 }
 
-void tsldr_main_monitor_encode_required_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps)
+void tsldr_main_monitor_encode_required_rights(void *base, tsldr_acrtreq_t *req_acrt)
 {
-    tsldr_acrtutil_encode_rights(base, channels, n_channels, irqs, n_irqs, mappings, n_mps);
+    tsldr_acrtutil_encode_rights(base, req_acrt->channels, req_acrt->num_req_channels, req_acrt->irqs, req_acrt->num_req_irqs, req_acrt->mappings, req_acrt->num_req_mappings);
 }
