@@ -208,3 +208,22 @@ void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
 }
 
 
+seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uintptr_t vaddr)
+{
+    const uint8_t    *base = (const uint8_t *)elf_base;
+    const Elf64_Ehdr *eh   = (const Elf64_Ehdr *)base;
+    const Elf64_Shdr *sh   = (const Elf64_Shdr *)(base + eh->e_shoff);
+
+    for (uint16_t i = 0; i < eh->e_shnum; ++i) {
+        seL4_Word start = sh[i].sh_addr;
+        seL4_Word size  = sh[i].sh_size;
+        if (vaddr >= start && vaddr < start + size) {
+            if (sh[i].sh_type == SHT_NOBITS) {
+                break;
+            }
+            return (seL4_Word)(elf_base + sh[i].sh_offset + (vaddr - start));
+        }
+    }
+    return (seL4_Word)-1;
+}
+
