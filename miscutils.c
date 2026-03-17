@@ -30,6 +30,21 @@ int tsldr_miscutil_memcmp(const unsigned char* s1, const unsigned char* s2, int 
     return 0;
 }
 
+int tsldr_miscutil_strcmp(const char* s1, const char* s2)
+{
+    const unsigned char* a = (const unsigned char*)s1;
+    const unsigned char* b = (const unsigned char*)s2;
+
+    int i = 0;
+    while (a[i] != '\0' && b[i] != '\0') {
+        if (a[i] != b[i]) {
+            return (a[i] - b[i]);
+        }
+        i++;
+    }
+    return (a[i] - b[i]);
+}
+
 
 void putc(uint8_t ch)
 {
@@ -171,4 +186,25 @@ void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)
         }
     }
 }
+
+
+void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
+{
+    Elf64_Ehdr *eh = (Elf64_Ehdr *)elf_base;
+    Elf64_Shdr *sh_table = (Elf64_Shdr *)(elf_base + eh->e_shoff);
+    Elf64_Shdr *shstr_sh = &sh_table[eh->e_shstrndx];
+
+    const char *shstrtab = (const char *)(elf_base + shstr_sh->sh_offset);
+
+    for (int i = 0; i < eh->e_shnum; ++i) {
+        Elf64_Shdr *sh = &sh_table[i];
+        if (sh->sh_name >= shstr_sh->sh_size) continue;
+        const char *name = shstrtab + sh->sh_name;
+        if (tsldr_miscutil_strcmp(name, section) == 0) {
+            return (void *)sh;
+        }
+    }
+    return (void *)NULL;
+}
+
 
