@@ -2,7 +2,6 @@
 #include <acrtutils.h>
 #include <caputils.h>
 #include <libtrustedlo.h>
-#include <string.h>
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
