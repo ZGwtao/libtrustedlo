@@ -19,13 +19,29 @@ ifndef CPU
 $(error CPU is not set)
 endif
 
+ifndef TARGET
+$(error TARGET is not set)
+endif
+
 ifndef LIBTRUSTEDLO_PATH
 $(error LIBTRUSTEDLO_PATH is not set)
 endif
 
+ifdef LLVM
+CC := clang
+LD := ld.lld
+LIBTSLDR_CFLAGS = -target $(TARGET) -Wno-unused-command-line-argument
+else
+ifndef TOOLCHAIN
+$(error your TOOLCHAIN triple must be specified for non-LLVM toolchain setup. E.g. TOOLCHAIN = aarch64-none-elf)
+else
 
 CC ?= $(TOOLCHAIN)-gcc
-AR ?= $(TOOLCHAIN)-ar
+LD ?= $(TOOLCHAIN)-ld
+LIBTSLDR_LDFLAGS =
+
+endif
+endif
 
 BOARD_DIR ?= $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
@@ -38,7 +54,7 @@ LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
 LIBTSLDR_OBJS := $(addprefix $(LIBTSLDR_BUILD_DIR)/,$(TSLDR_OBJS))
 LIBTSLDR := $(LIBTSLDR_BUILD_DIR)/libtrustedlo.a
 
-LIBTSLDR_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 \
+LIBTSLDR_CFLAGS += -mstrict-align -nostdlib -ffreestanding -g -O3 \
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include \
 					-I$(LIBTSLDR_SRC_DIR)/include
@@ -55,4 +71,5 @@ $(LIBTSLDR_BUILD_DIR)/%.o: $(LIBTSLDR_SRC_DIR)/%.c | $(LIBTSLDR_BUILD_DIR)
 
 # Archive rule
 $(LIBTSLDR): $(LIBTSLDR_OBJS)
-	$(AR) rcs $@ $^
+	$(LD) $(LIBTSLDR_LDFLAGS) -r $^ -o $@
+	rm $(LIBTSLDR_OBJS)
