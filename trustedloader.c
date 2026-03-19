@@ -107,10 +107,10 @@ void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     if (!md->init) {
-        TSLDR_DBG_PRINT("[@protocon] trusted loading metadata is not prepared...\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is not prepared...\n");
         microkit_internal_crash(-1);
     }
-    TSLDR_DBG_PRINT("[@protocon]" "trusted loading metadata is ready...\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is ready...\n");
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loader init prologue\n");
 
     /* do some id activation here before actually parsing access rights... */
@@ -225,14 +225,14 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
     tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 
     tsldr_miscutil_load_elf((void *)ehdr->e_entry, ehdr);
-    TSLDR_DBG_PRINT("[@protocon]" "Load client elf to the targeting memory region\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Load client elf to the targeting memory region\n");
 
     tsldr_miscutil_load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
-    TSLDR_DBG_PRINT("[@protocon]" "Load trampoline elf to the targeting memory region\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Load trampoline elf to the targeting memory region\n");
 
     /* -- now we are ready to jump to the trampoline -- */
 
-    TSLDR_DBG_PRINT("[@protocon]" "Switch to the trampoline's code to execute\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute\n");
     tsldr_main_jump_with_stack((void *)trampoline_stack_top, (entry_fn_t)trampoline_ehdr->e_entry);   
 }
 
