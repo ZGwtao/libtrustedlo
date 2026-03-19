@@ -39,7 +39,6 @@ typedef struct {
 typedef struct {
     size_t        child_id;
     seL4_Word     system_hash;
-    unsigned char public_key[PUBLIC_KEY_BYTES];
     uint8_t       channels[MICROKIT_MAX_CHANNELS];
     uint8_t       cstate[MICROKIT_MAX_CHANNELS];
     seL4_Word     irqs[MICROKIT_MAX_CHANNELS];
