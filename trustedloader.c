@@ -3,8 +3,6 @@
 #include <caputils.h>
 #include <libtrustedlo.h>
 
-#define LIB_NAME_MACRO "    => [@trustedlo] "
-
 void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 {
     if (!loader || !data) {
@@ -40,7 +38,7 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
 void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id)
 {
     if (!c) {
-        microkit_dbg_puts(LIB_NAME_MACRO "Try to init null loader\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Try to init null loader\n");
         return;
     }
     if (c->init != true) {
@@ -53,13 +51,15 @@ void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id)
 void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
 {
     if (!loader) {
-        microkit_dbg_puts("tsldr_main_remove_caps:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts("tsldr_main_remove_caps: ");
         microkit_dbg_puts(" invalid loader pointer given\n");
         microkit_internal_crash(-1);
     }
     /* set the flag to restore cap during restart */
     if (loader->restore == false) {
-        microkit_dbg_puts("tsldr_main_remove_caps:\n");
+        microkit_dbg_puts(LIB_NAME_MACRO);
+        microkit_dbg_puts("tsldr_main_remove_caps: ");
         microkit_dbg_puts(" need to restore access rights in next round\n");
         loader->restore = true;
     }
@@ -71,13 +71,15 @@ void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
 void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
 {
     if (!loader) {
-        microkit_dbg_puts("tsldr_main_restore_caps:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts("tsldr_main_restore_caps: ");
         microkit_dbg_puts(" invalid loader pointer given\n");
         microkit_internal_crash(-1);
     }
     /* if no need to restore caps */
     if (loader->restore == false) {
-        microkit_dbg_puts("tsldr_main_restore_caps:\n");
+        microkit_dbg_puts(LIB_NAME_MACRO);
+        microkit_dbg_puts("tsldr_main_restore_caps: ");
         microkit_dbg_puts(" first run, no need to restore anything\n");
         return;
     }

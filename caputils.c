@@ -1,11 +1,13 @@
 
 #include <caputils.h>
+#include <miscutils.h>
 
 void tsldr_caputil_delete_cap(seL4_Word cap_idx)
 {
     seL4_Word err = seL4_CNode_Delete(CNODE_SELF_CAP, cap_idx, PD_CAP_BITS);
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_delete_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_delete_cap: ");
         microkit_dbg_puts(" failed to delete cap_idx from working cnode '");
         microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -18,7 +20,8 @@ void tsldr_caputil_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
 {
     seL4_Word err = seL4_CNode_Delete(cnode_idx, cap_idx, PD_CAP_BITS);
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_delete_cap_from_cnode:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_delete_cap_from_cnode: ");
         microkit_dbg_puts(" failed to delete cap_idx '");
         microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("' from cnode: '");
@@ -36,7 +39,8 @@ void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
         CNODE_BACKUP_CAP, src_idx, PD_CAP_BITS
     );
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_load_cap_from_backup_cnode:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_load_cap_from_backup_cnode: ");
         microkit_dbg_puts(" failed to load cap_idx from backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -52,7 +56,8 @@ void tsldr_caputil_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_i
         CNODE_SELF_CAP, src_idx, PD_CAP_BITS
     );
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_store_cap_to_backup_cnode:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_store_cap_to_backup_cnode: ");
         microkit_dbg_puts(" failed to store cap_idx to backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -69,7 +74,8 @@ void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
         rights
     );
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_copy_cap_from_backup_cnode:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_copy_cap_from_backup_cnode: ");
         microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -83,7 +89,8 @@ void tsldr_caputil_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_de
     // FIXME: copy rights
     seL4_Word err = seL4_CNode_Copy(cnode_dest, cap_dest, PD_CAP_BITS, cnode_src, cap_src, PD_CAP_BITS, seL4_AllRights);
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_copy_cap_between_cnode:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_copy_cap_between_cnode: ");
         //microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -168,7 +175,8 @@ void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx)
 void tsldr_caputil_revoke_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_revoke_irq_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_revoke_irq_cap: ");
         microkit_dbg_puts(" invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
@@ -180,7 +188,8 @@ void tsldr_caputil_revoke_irq_cap(seL4_Word irq_idx)
 void tsldr_caputil_revoke_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_revoke_ppc_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_revoke_ppc_cap: ");
         microkit_dbg_puts(" invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
@@ -192,7 +201,8 @@ void tsldr_caputil_revoke_ppc_cap(seL4_Word ppc_idx)
 void tsldr_caputil_revoke_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_revoke_ntfn_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_revoke_ntfn_cap: ");
         microkit_dbg_puts(" invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
@@ -204,7 +214,8 @@ void tsldr_caputil_revoke_notification_cap(seL4_Word ntfn_idx)
 void tsldr_caputil_restore_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_restore_irq_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_restore_irq_cap: ");
         microkit_dbg_puts(" invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
@@ -217,7 +228,8 @@ void tsldr_caputil_restore_irq_cap(seL4_Word irq_idx)
 void tsldr_caputil_restore_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_restore_ppc_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_restore_ppc_cap: ");
         microkit_dbg_puts(" invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
@@ -229,7 +241,8 @@ void tsldr_caputil_restore_ppc_cap(seL4_Word ppc_idx)
 void tsldr_caputil_restore_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
-        microkit_dbg_puts(" tsldr_caputil_restore_notification_cap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_restore_notification_cap: ");
         microkit_dbg_puts(" invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
@@ -251,7 +264,8 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
 #endif
     if (err != seL4_NoError) {
         // FIXME
-        microkit_dbg_puts(" tsldr_caputil_pd_page_map:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_pd_page_map: ");
         microkit_dbg_puts(" failed to map page with id '");
         microkit_dbg_put32(page_idx);
         //microkit_dbg_puts("', in vaddr: '");
@@ -276,7 +290,8 @@ void tsldr_caputil_pd_page_unmap(seL4_Word page_idx)
 #error "Unsupported architecture for 'tsldr_caputil_pd_page_unmap'"
 #endif
     if (err != seL4_NoError) {
-        microkit_dbg_puts(" tsldr_caputil_pd_page_unmap:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_caputil_pd_page_unmap: ");
         microkit_dbg_puts(" failed to unmap page with id '");
         microkit_dbg_put32(page_idx);
         microkit_dbg_puts("'\n");

@@ -23,6 +23,9 @@ void tsldr_miscutil_dbg_print(const char *format, ...);
     do { } while (0)
 #endif
 
+#define LIB_NAME_MACRO          "    => [@trustedlo] "
+#define TSLDR_ERR_PRINT_MACRO   "    => [@trustedlo::error] "
+
 
 void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
 void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[]);

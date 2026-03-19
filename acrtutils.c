@@ -57,12 +57,7 @@ void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
             tsldr_caputil_restore_ppc_cap(channel);
         else
             tsldr_caputil_restore_notification_cap(channel);
-
-        microkit_dbg_puts(" tsldr_acrtutil_restore_channels:\n");
-        microkit_dbg_puts(" restore channel '");
-        microkit_dbg_put32(channel);
-        microkit_dbg_puts("'\n");
-
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore channel '%d'\n", channel);
     }
 }
 
@@ -82,12 +77,7 @@ void tsldr_acrtutil_restore_irqs(void *data, void *mdinfo)
         }
         
         tsldr_caputil_restore_irq_cap(irq);
-
-        microkit_dbg_puts(" tsldr_acrtutil_restore_irqs:\n");
-        microkit_dbg_puts(" restore IRQ '");
-        microkit_dbg_put32(irq);
-        microkit_dbg_puts("'\n");
-
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore irq '%d'\n", irq);
     }
 }
 
@@ -107,13 +97,7 @@ void tsldr_acrtutil_restore_mappings(void *data)
         for (int i = 0; i < m->number_of_pages; ++i) {
             tsldr_caputil_pd_grant_page_access(m->page + i, m->vaddr + i * m->page_size, rights, m->attrs);
         }
-
-        microkit_dbg_puts(" tsldr_acrtutil_restore_mappings:\n");
-        microkit_dbg_puts(" restore (map) mapping '");
-        microkit_dbg_put32(m->page);
-        microkit_dbg_puts("' at vaddr '");
-        // TODO: add put64 here for vaddr
-        microkit_dbg_puts("'\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
 
     tsldr_caputil_pd_revoke_vspace_access();
@@ -145,12 +129,7 @@ void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
         } else {
             tsldr_caputil_revoke_notification_cap(channel);
         }
-
-        microkit_dbg_puts(" tsldr_acrtutil_revoke_channels:\n");
-        microkit_dbg_puts(" revoke channel '");
-        microkit_dbg_put32(channel);
-        microkit_dbg_puts("'\n");
-
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke channel '%d'\n", channel);
     }
 }
 
@@ -165,12 +144,7 @@ void tsldr_acrtutil_revoke_irqs(void *data, void *mdinfo)
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq);
-
-        microkit_dbg_puts(" tsldr_acrtutil_revoke_irqs:\n");
-        microkit_dbg_puts(" revoke IRQ '");
-        microkit_dbg_put32(irq);
-        microkit_dbg_puts("'\n");
-
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke irq '%d'\n", irq);
     }
 }
 
@@ -189,14 +163,7 @@ void tsldr_acrtutil_revoke_mappings(void *data)
         tsldr_mapping_t *m = (tsldr_mapping_t *)loader->allowed_mappings[i];
 
         tsldr_caputil_pd_revoke_page_access(m->page);
-
-        microkit_dbg_puts(" tsldr_acrtutil_revoke_mappings:\n");
-        microkit_dbg_puts(" revoke (unmap) mapping '");
-        microkit_dbg_put32(m->page);
-        microkit_dbg_puts("' at vaddr '");
-        // TODO: add put64 here for vaddr
-        microkit_dbg_puts("'\n");
-
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
 
     tsldr_caputil_pd_revoke_vspace_access();
@@ -208,7 +175,8 @@ void tsldr_acrtutil_revoke_mappings(void *data)
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num)
 {
     if (num > MAX_ACCESS_RIGHTS) {
-        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights: ");
         microkit_dbg_puts(" number of access rights given is too big '");
         microkit_dbg_put32(num);
         microkit_dbg_puts("'\n");
@@ -226,20 +194,13 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     rights_table->num_entries = num;
 
     for (int i = 0; i < rights_table->num_entries; ++i) {
-
         rights_entries = &rights_table->entries[i];
         rights_entries->type = input_base->type;
         rights_entries->data = input_base->data;
         input_base += 1;
-
-        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights:\n");
-        microkit_dbg_puts(" poplated access rights '");
-        microkit_dbg_put32(i);
-        microkit_dbg_puts("' with type '");
-        microkit_dbg_put32(rights_entries->type);
-        microkit_dbg_puts("' and data '");
-        microkit_dbg_put32(rights_entries->data);
-        microkit_dbg_puts("'\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO \
+            "populate access rights '%d' with type '%x' and data '%x'\n",
+            i, rights_entries->type, rights_entries->data);
     }
 }
 
@@ -291,7 +252,8 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
             break;
 
         default:
-            microkit_dbg_puts(" tsldr_acrtutil_add_rights_to_whitelist:\n");
+            microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+            microkit_dbg_puts(" tsldr_acrtutil_add_rights_to_whitelist: ");
             microkit_dbg_puts(" unknown access rights '");
             microkit_dbg_put32(entry->type);
             microkit_internal_crash(-1);
@@ -302,7 +264,8 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
 seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
 {
     if (!base) {
-        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
         microkit_dbg_puts(" invalid pointer given\n");
         microkit_internal_crash(-1);
     }
@@ -310,11 +273,7 @@ seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
     size_t *p = (size_t *)base;
     seL4_Word acrt_num = *p;
 
-    microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
-    microkit_dbg_puts(" number of access rights checked '");
-    microkit_dbg_put32(acrt_num);
-    microkit_dbg_puts("'\n");
-
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of access rights checked '%d'\n", acrt_num);
     return acrt_num;
 }
 
