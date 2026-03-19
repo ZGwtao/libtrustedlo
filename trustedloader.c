@@ -148,14 +148,19 @@ void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
 #endif
 
 
-void tsldr_main_check_elf_integrity(uintptr_t elf)
+void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err)
 {
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Check ELF integrity\n");
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
     /* check elf integrity */
     if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        microkit_internal_crash(-1);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF magic number mismatch\n");
+        *err = 1;
+        //microkit_internal_crash(-1);
+    } else {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF magic number verified\n");
+        *err = 0;
     }
-    TSLDR_DBG_PRINT("[@protocon] " "verified ELF header\n");
 }
 
 
@@ -198,11 +203,19 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 {
     tsldr_main_loading_prologue(mdinfo, context);
 
-
+    seL4_Word err;
     /* start to parse client elf information */
-    tsldr_main_check_elf_integrity(client_elf);
+    tsldr_main_check_elf_integrity(client_elf, &err);
+    if (err) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Failed to check client elf integrity\n");
+        return;
+    }
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
-    tsldr_main_check_elf_integrity(trampoline_elf);
+    tsldr_main_check_elf_integrity(trampoline_elf, &err);
+    if (err) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Failed to check trampoline elf integrity\n");
+        return;
+    }
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
 

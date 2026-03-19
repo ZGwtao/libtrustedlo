@@ -153,7 +153,7 @@ void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader);
 __attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
 
 
-void tsldr_main_check_elf_integrity(uintptr_t elf);
+void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err);
 
 
 void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base, void *mdinfo);
