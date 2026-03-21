@@ -29,5 +29,5 @@ void tsldr_miscutil_dbg_print(const char *format, ...);
 
 void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
 void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[]);
-seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uintptr_t vaddr);
+seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uintptr_t vaddr, seL4_Word *sh_size);
 
