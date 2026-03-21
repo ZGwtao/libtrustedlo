@@ -58,9 +58,7 @@ void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
     }
     /* set the flag to restore cap during restart */
     if (loader->restore == false) {
-        microkit_dbg_puts(LIB_NAME_MACRO);
-        microkit_dbg_puts("tsldr_main_remove_caps: ");
-        microkit_dbg_puts(" need to restore access rights in next round\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_remove_caps: need to restore access rights in next round\n");
         loader->restore = true;
     }
     tsldr_acrtutil_revoke_channels(loader, mdinfo);
@@ -78,9 +76,7 @@ void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
     }
     /* if no need to restore caps */
     if (loader->restore == false) {
-        microkit_dbg_puts(LIB_NAME_MACRO);
-        microkit_dbg_puts("tsldr_main_restore_caps: ");
-        microkit_dbg_puts(" first run, no need to restore anything\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_restore_caps: first run, no need to restore anything\n");
         return;
     }
     tsldr_acrtutil_restore_channels(loader, mdinfo);
