@@ -15,7 +15,7 @@ int tsldr_miscutil_strcmp(const char* s1, const char* s2);
 
 void tsldr_miscutil_dbg_print(const char *format, ...);
 
-#if defined(CONFIG_DEBUG_BUILD)
+#if !defined(CONFIG_DEBUG_BUILD)
 #define TSLDR_DBG_PRINT(...) \
     do { tsldr_miscutil_dbg_print(__VA_ARGS__); } while (0)
 #else
