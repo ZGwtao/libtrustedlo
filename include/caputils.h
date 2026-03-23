@@ -44,8 +44,8 @@ void tsldr_caputil_pd_deprivilege(void);
 void tsldr_caputil_pd_privilege(seL4_Word pd_idx);
 void tsldr_caputil_pd_grant_vspace_access(void);
 void tsldr_caputil_pd_revoke_vspace_access(void);
-void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs);
-void tsldr_caputil_pd_page_unmap(seL4_Word page_idx);
+void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs, uint8_t flags);
+void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags);
 void tsldr_caputil_pd_grant_page_access(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs);
 void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx);
 
