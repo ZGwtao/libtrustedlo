@@ -30,6 +30,8 @@ inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
     return md->irqs[irq];
 }
 
+/* once uncomment this, you will map all frames one by one */
+// #undef CONFIG_BATCHING_MAP
 
 
 /* Restore disallowed channel capabilities from last run */
@@ -94,9 +96,14 @@ void tsldr_acrtutil_restore_mappings(void *data)
         seL4_CapRights_t rights = seL4_AllRights;
         // FIXME
         // rights.words[0] = mapping->rights;
-        for (int i = 0; i < m->number_of_pages; ++i) {
-            tsldr_caputil_pd_grant_page_access(m->page + i, m->vaddr + i * m->page_size, rights, m->attrs);
+#if defined(CONFIG_BATCHING_MAP)
+        /* allow mapping in batches */
+        tsldr_caputil_pd_grant_page_access(m->page, m->vaddr, rights, m->attrs, m->number_of_pages);
+#else
+        for (int j = 0; j < m->number_of_pages; ++j) {
+            tsldr_caputil_pd_grant_page_access(m->page + j, m->vaddr + j * m->page_size, rights, m->attrs, 1);
         }
+#endif /* CONFIG_BATCHING_MAP */
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
 
@@ -161,15 +168,18 @@ void tsldr_acrtutil_revoke_mappings(void *data)
          * remove them before next run to create an empty PD
          */
         tsldr_mapping_t *m = (tsldr_mapping_t *)loader->allowed_mappings[i];
-
-        tsldr_caputil_pd_revoke_page_access(m->page);
+#if defined(CONFIG_BATCHING_MAP)
+        /* allow unmap in batch... */
+        tsldr_caputil_pd_revoke_page_access(m->page, m->number_of_pages);
+#else
+        for (int j = 0; j < m->number_of_pages; ++j) {
+            tsldr_caputil_pd_revoke_page_access(m->page + j, 1);
+        }
+#endif /* CONFIG_BATCHING_MAP */
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
-
     tsldr_caputil_pd_revoke_vspace_access();
-
 }
-
 
 
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num)
