@@ -98,9 +98,9 @@ void tsldr_acrtutil_restore_mappings(void *data)
         // rights.words[0] = mapping->rights;
 #if defined(CONFIG_BATCHING_MAP)
         /* allow mapping in batches */
-        tsldr_caputil_pd_grant_page_access(m->page, m->vaddr, rights, m->attrs, m->number_of_pages);
+        tsldr_caputil_pd_grant_page_access(m->page, m->vaddr, rights, m->attrs, m->page_num);
 #else
-        for (int j = 0; j < m->number_of_pages; ++j) {
+        for (int j = 0; j < m->page_num; ++j) {
             tsldr_caputil_pd_grant_page_access(m->page + j, m->vaddr + j * m->page_size, rights, m->attrs, 1);
         }
 #endif /* CONFIG_BATCHING_MAP */
@@ -170,9 +170,9 @@ void tsldr_acrtutil_revoke_mappings(void *data)
         tsldr_mapping_t *m = (tsldr_mapping_t *)loader->allowed_mappings[i];
 #if defined(CONFIG_BATCHING_MAP)
         /* allow unmap in batch... */
-        tsldr_caputil_pd_revoke_page_access(m->page, m->number_of_pages);
+        tsldr_caputil_pd_revoke_page_access(m->page, m->page_num);
 #else
-        for (int j = 0; j < m->number_of_pages; ++j) {
+        for (int j = 0; j < m->page_num; ++j) {
             tsldr_caputil_pd_revoke_page_access(m->page + j, 1);
         }
 #endif /* CONFIG_BATCHING_MAP */

@@ -29,7 +29,7 @@ typedef struct {
 typedef struct {
     seL4_Word vaddr;
     seL4_Word page;
-    seL4_Word number_of_pages;
+    seL4_Word page_num;
     seL4_Word page_size;
     seL4_Word rights;
     seL4_Word attrs;
