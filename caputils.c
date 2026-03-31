@@ -178,7 +178,7 @@ void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
     for (seL4_Word i = 0; i < page_num; ++i) {
         tsldr_caputil_load_cap_from_backup_cnode(target_idx, backup_idx + i);
         tsldr_caputil_pd_page_unmap(target_idx, 0);
-        tsldr_caputil_store_cap_to_backup_cnode(backup_idx, target_idx);
+        tsldr_caputil_store_cap_to_backup_cnode(backup_idx + i, target_idx);
     }
 #endif
 }
