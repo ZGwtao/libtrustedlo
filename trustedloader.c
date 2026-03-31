@@ -117,14 +117,13 @@ void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader)
 
 
 #if defined(CONFIG_ARCH_X86_64)
-__attribute__((noreturn))
+__attribute__((naked, noreturn)) /* don't let your compiler fuck around with the args */
 void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
 {
     __asm__ volatile(
         "mov %rdi, %rsp\n\t"   /* new_stack in rdi */
         "jmp *%rsi\n\t"        /* entry in rsi */
     );
-    __builtin_unreachable();
 }
 #elif defined(CONFIG_ARCH_AARCH64)
 __attribute__((noreturn))
@@ -230,7 +229,8 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 
     /* -- now we are ready to jump to the trampoline -- */
 
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute: stack: %x, entry: %x\n",
+                    (void *)trampoline_stack_top, (void *)trampoline_ehdr->e_entry);
     tsldr_main_jump_with_stack((void *)trampoline_stack_top, (entry_fn_t)trampoline_ehdr->e_entry);   
 }
 
