@@ -54,7 +54,7 @@ LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
 LIBTSLDR_OBJS := $(addprefix $(LIBTSLDR_BUILD_DIR)/,$(TSLDR_OBJS))
 LIBTSLDR := $(LIBTSLDR_BUILD_DIR)/libtrustedlo.a
 
-LIBTSLDR_CFLAGS += -mstrict-align -nostdlib -ffreestanding -g -O3 \
+LIBTSLDR_CFLAGS += -nostdlib -ffreestanding -g -O3 \
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include \
 					-I$(LIBTSLDR_SRC_DIR)/include
