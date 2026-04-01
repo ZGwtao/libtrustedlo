@@ -145,8 +145,12 @@ void tsldr_caputil_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr, seL
 #endif
     seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
 #if defined(CONFIG_ARM_ABS_MAP)
-    //tsldr_caputil_pd_page_map(backup_idx, vaddr, rights, attrs, 1);
     seL4_Error err = seL4_ARM_VSpace_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, vaddr, rights, attrs, page_num);
+    if (err != seL4_NoError) {
+        microkit_internal_crash(err);
+    }
+#elif defined(CONFIG_X86_ABS_MAP)
+    seL4_Error err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, vaddr, rights, attrs, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
@@ -168,8 +172,12 @@ void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
 {
     seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
 #if defined(CONFIG_ARM_ABS_MAP)
-    //tsldr_caputil_pd_page_unmap(backup_idx, 1);
     seL4_Error err = seL4_ARM_VSpace_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, page_num);
+    if (err != seL4_NoError) {
+        microkit_internal_crash(err);
+    }
+#elif defined(CONFIG_X86_ABS_MAP)
+    seL4_Error err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
@@ -268,7 +276,15 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
-    err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_SELF_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
+    if (flags == 0)
+        err = seL4_X86_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
+    else {
+#if defined(CONFIG_X86_ABS_MAP)
+        err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
+#else
+#error "Unsupported syscall for tsldr_caputil_pd_page_map, try enable KernelX86AbsMap"
+#endif
+    }
 #elif defined(CONFIG_ARCH_AARCH64)
     if (flags == 0)
         err = seL4_ARM_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
@@ -303,7 +319,15 @@ void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
-    err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_SELF_CAP, page_idx, PD_CAP_BITS, 1);
+    if (flags == 0)
+        err = seL4_X86_Page_Unmap(page_idx);
+    else {
+#if defined(CONFIG_X86_ABS_MAP)
+        err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, 1);
+#else
+#error "Unsupported syscall for tsldr_caputil_pd_page_unmap, try enable KernelX86AbsMap"
+#endif
+    }
 #elif defined(CONFIG_ARCH_AARCH64)
     if (flags == 0)
         err = seL4_ARM_Page_Unmap(page_idx);
