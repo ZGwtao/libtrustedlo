@@ -268,7 +268,7 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
-    err = seL4_X86_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
+    err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_SELF_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
 #elif defined(CONFIG_ARCH_AARCH64)
     if (flags == 0)
         err = seL4_ARM_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
@@ -303,7 +303,7 @@ void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
-    err = seL4_X86_Page_Unmap(page_idx);
+    err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_SELF_CAP, page_idx, PD_CAP_BITS, 1);
 #elif defined(CONFIG_ARCH_AARCH64)
     if (flags == 0)
         err = seL4_ARM_Page_Unmap(page_idx);
