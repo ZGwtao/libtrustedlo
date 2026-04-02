@@ -60,10 +60,11 @@ void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
     if (loader->restore == false) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_remove_caps: need to restore access rights in next round\n");
         loader->restore = true;
+        return;
     }
     tsldr_acrtutil_revoke_channels(loader, mdinfo);
     tsldr_acrtutil_revoke_irqs(loader, mdinfo);
-    tsldr_acrtutil_restore_mappings(loader);
+    tsldr_acrtutil_revoke_mappings(loader);
 }
 
 void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
@@ -75,13 +76,13 @@ void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
         microkit_internal_crash(-1);
     }
     /* if no need to restore caps */
-    if (loader->restore == false) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_restore_caps: first run, no need to restore anything\n");
-        return;
-    }
+    // if (loader->restore == false) {
+    //     TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_restore_caps: first run, no need to restore anything\n");
+    //     return;
+    // }
     tsldr_acrtutil_restore_channels(loader, mdinfo);
     tsldr_acrtutil_restore_irqs(loader, mdinfo);
-    tsldr_acrtutil_revoke_mappings(loader);
+    tsldr_acrtutil_restore_mappings(loader);
 }
 
 
@@ -180,10 +181,6 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
     // we populate the rights to access_rights here, and compared the information from last run with it
     tsldr_main_declare_required_rights(context, acrt_stat_base);
 
-    /* if this is not a first-time execution, restore the access rights distribution to the default state */
-    /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    tsldr_main_pd_restore_caps_for_required_rights(context, mdinfo);
-
     /* (really) populate allowed access rights */
     // we use this function to:
     //  initialise the allowed lists for different resources for this execution round
@@ -193,6 +190,11 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
     tsldr_main_pin_required_rights_before_pola(context, mdinfo);
 
     tsldr_main_pd_remove_caps_for_redundant_rights(context, mdinfo);
+
+    /* if this is not a first-time execution, restore the access rights distribution to the default state */
+    /* once the PD is restored to a default state, we can populate the rights with the information provided above */
+    tsldr_main_pd_restore_caps_for_required_rights(context, mdinfo);
+
 }
 
 

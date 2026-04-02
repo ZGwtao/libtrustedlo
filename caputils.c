@@ -77,7 +77,7 @@ void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_caputil_copy_cap_from_backup_cnode: ");
         microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
-        //microkit_dbg_put32(cap_idx);
+        microkit_dbg_put32(dest_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
         microkit_internal_crash(err);

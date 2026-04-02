@@ -45,7 +45,7 @@ void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
          * If the channel id points to an allowed channel,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_channels[channel]) {
+        if (loader->allowed_channels[channel] == false) {
             continue;
         }
         /* try to record channel state: pp or notification */
@@ -55,6 +55,7 @@ void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
         if (tsldr_acrtutil_check_channel(channel, &is_ppc, mdinfo) == false) {
             continue;
         }
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "channel '%d' to restore\n", channel);
         if (is_ppc)
             tsldr_caputil_restore_ppc_cap(channel);
         else
@@ -74,7 +75,7 @@ void tsldr_acrtutil_restore_irqs(void *data, void *mdinfo)
          * If the IRQ id points to an allowed interrupt number,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
+        if (loader->allowed_irqs[irq] == false || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         
@@ -120,7 +121,7 @@ void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
     for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
 
         /*  If the channel is allowed, keep it */
-        if (loader->allowed_channels[channel]) {
+        if (loader->allowed_channels[channel] == false) {
             continue;
         }
 
@@ -147,7 +148,7 @@ void tsldr_acrtutil_revoke_irqs(void *data, void *mdinfo)
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
-        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
+        if (loader->allowed_irqs[irq] == false || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq);
