@@ -26,9 +26,6 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
         microkit_internal_crash(-1);
     }
     loader->mp_cnt = 0;
-    tsldr_miscutil_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
-    tsldr_miscutil_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
-
     tsldr_acrt_table_t *rights = &loader->acrt_required_table;
     for (int i = 0; i < rights->num_entries; i++)
         tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]), mdinfo);
@@ -62,9 +59,11 @@ void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
         loader->restore = true;
         return;
     }
+    /* clean up all ACCESS_RIGHTS_USED caps */
     tsldr_acrtutil_revoke_channels(loader, mdinfo);
     tsldr_acrtutil_revoke_irqs(loader, mdinfo);
     tsldr_acrtutil_revoke_mappings(loader);
+    /* once finished, all USED are UNSET */
 }
 
 void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
@@ -75,11 +74,11 @@ void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
         microkit_dbg_puts(" invalid loader pointer given\n");
         microkit_internal_crash(-1);
     }
-    /* if no need to restore caps */
-    // if (loader->restore == false) {
-    //     TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_restore_caps: first run, no need to restore anything\n");
-    //     return;
-    // }
+
+    /* for ACCESS_RIGHTS_KEEP, keep them as USED */
+    /* for ACCESS_RIGHTS_ALLOWED, create them from backup CNode */
+    /* for ACCESS_RIGHTS_UNSET, do nothing */
+    /* and there should not be any other states (all USED are UNSET from remove_caps) */
     tsldr_acrtutil_restore_channels(loader, mdinfo);
     tsldr_acrtutil_restore_irqs(loader, mdinfo);
     tsldr_acrtutil_restore_mappings(loader);
@@ -162,16 +161,6 @@ void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err)
 }
 
 
-void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context, void *mdinfo)
-{
-    tsldr_main_restore_caps(context, mdinfo);
-}
-
-void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context, void *mdinfo)
-{
-    tsldr_main_remove_caps(context, mdinfo);
-}
-
 void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base, void *mdinfo)
 {
     /* populate the required access rights to the loader */
@@ -189,11 +178,12 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
     tsldr_main_pin_required_rights_before_pola(context, mdinfo);
 
-    tsldr_main_pd_remove_caps_for_redundant_rights(context, mdinfo);
+
+    tsldr_main_remove_caps(context, mdinfo);
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    tsldr_main_pd_restore_caps_for_required_rights(context, mdinfo);
+    tsldr_main_restore_caps(context, mdinfo);
 
 }
 

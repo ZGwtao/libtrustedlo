@@ -64,6 +64,14 @@ typedef struct {
     tsldr_mdinfo_t infodb[16];
 } tsldr_mdinfodb_t;
 
+typedef uint8_t access_rights_state_t;
+
+enum {
+    ACCESS_RIGHTS_UNSET = 0,
+    ACCESS_RIGHTS_ALLOWED = 1,
+    ACCESS_RIGHTS_USED = 2,
+    ACCESS_RIGHTS_KEEP = 3,
+};
 
 /* Trusted loader metadata / state */
 typedef struct {
@@ -75,15 +83,19 @@ typedef struct {
     bool restore;
     bool init;
 
-    bool allowed_channels[MICROKIT_MAX_CHANNELS];
+    access_rights_state_t allowed_channels[MICROKIT_MAX_CHANNELS];
 
-    bool allowed_irqs[MICROKIT_MAX_CHANNELS];
+    access_rights_state_t allowed_irqs[MICROKIT_MAX_CHANNELS];
+
+    access_rights_state_t allowed_mappings[MICROKIT_MAX_CHANNELS];
+
+    seL4_Word mapping_data[MICROKIT_MAX_CHANNELS];
 
     int mp_cnt;
-    seL4_Word allowed_mappings[MICROKIT_MAX_CHANNELS];
 
 } tsldr_context_t;
 
+_Static_assert(sizeof(tsldr_context_t) <= 0x1000, "unexpected tsldr_context_t size");
 
 
 typedef void (*entry_fn_t)(void);

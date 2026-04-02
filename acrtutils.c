@@ -45,7 +45,11 @@ void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
          * If the channel id points to an allowed channel,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_channels[channel] == false) {
+        if (loader->allowed_channels[channel] == ACCESS_RIGHTS_KEEP) {
+            loader->allowed_channels[channel] = ACCESS_RIGHTS_USED;
+            continue;
+        }
+        if (loader->allowed_channels[channel] == ACCESS_RIGHTS_UNSET) {
             continue;
         }
         /* try to record channel state: pp or notification */
@@ -60,6 +64,9 @@ void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
             tsldr_caputil_restore_ppc_cap(channel);
         else
             tsldr_caputil_restore_notification_cap(channel);
+
+        loader->allowed_channels[channel] = ACCESS_RIGHTS_USED;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore channel '%d'\n", channel);
     }
 }
@@ -75,11 +82,18 @@ void tsldr_acrtutil_restore_irqs(void *data, void *mdinfo)
          * If the IRQ id points to an allowed interrupt number,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_irqs[irq] == false || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
+        if (loader->allowed_irqs[irq] == ACCESS_RIGHTS_KEEP) {
+            loader->allowed_irqs[irq] = ACCESS_RIGHTS_USED;
+            continue;
+        }
+        if (loader->allowed_irqs[irq] == ACCESS_RIGHTS_UNSET || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         
         tsldr_caputil_restore_irq_cap(irq);
+
+        loader->allowed_irqs[irq] = ACCESS_RIGHTS_USED;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore irq '%d'\n", irq);
     }
 }
@@ -92,7 +106,14 @@ void tsldr_acrtutil_restore_mappings(void *data)
     tsldr_caputil_pd_grant_vspace_access();
 
     for (seL4_Word i = 0; i < loader->mp_cnt; i++) {
-        tsldr_mapping_t *m = (tsldr_mapping_t *)loader->allowed_mappings[i];
+        if (loader->allowed_mappings[i] == ACCESS_RIGHTS_KEEP) {
+            loader->allowed_mappings[i] = ACCESS_RIGHTS_USED;
+            continue;
+        }
+        if (loader->allowed_mappings[i] == ACCESS_RIGHTS_UNSET) {
+            continue;
+        }
+        tsldr_mapping_t *m = (tsldr_mapping_t *)loader->mapping_data[i];
 
         seL4_CapRights_t rights = seL4_AllRights;
         // FIXME
@@ -105,6 +126,8 @@ void tsldr_acrtutil_restore_mappings(void *data)
             tsldr_caputil_pd_grant_page_access(m->page + j, m->vaddr + j * m->page_size, rights, m->attrs, 1);
         }
 #endif /* CONFIG_BATCHING_MAP */
+        loader->allowed_mappings[i] = ACCESS_RIGHTS_USED;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
 
@@ -120,8 +143,10 @@ void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
 
     for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
 
-        /*  If the channel is allowed, keep it */
-        if (loader->allowed_channels[channel] == false) {
+        /* we simply ignore 'unset' as they never exist,*/
+        /* and for allowed they should be created */
+        /* for keep they should be ignored as well */
+        if (loader->allowed_channels[channel] != ACCESS_RIGHTS_USED) {
             continue;
         }
 
@@ -137,6 +162,9 @@ void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
         } else {
             tsldr_caputil_revoke_notification_cap(channel);
         }
+
+        loader->allowed_channels[channel] = ACCESS_RIGHTS_UNSET;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke channel '%d'\n", channel);
     }
 }
@@ -148,10 +176,13 @@ void tsldr_acrtutil_revoke_irqs(void *data, void *mdinfo)
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
-        if (loader->allowed_irqs[irq] == false || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
+        if (loader->allowed_irqs[irq] != ACCESS_RIGHTS_USED || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq);
+
+        loader->allowed_irqs[irq] = ACCESS_RIGHTS_UNSET;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke irq '%d'\n", irq);
     }
 }
@@ -168,7 +199,10 @@ void tsldr_acrtutil_revoke_mappings(void *data)
          * for those mapping areas that are already mapped,
          * remove them before next run to create an empty PD
          */
-        tsldr_mapping_t *m = (tsldr_mapping_t *)loader->allowed_mappings[i];
+        if (loader->allowed_mappings[i] != ACCESS_RIGHTS_USED) {
+            continue;
+        }
+        tsldr_mapping_t *m = (tsldr_mapping_t *)loader->mapping_data[i];
 #if defined(CONFIG_BATCHING_MAP)
         /* allow unmap in batch... */
         tsldr_caputil_pd_revoke_page_access(m->page, m->page_num);
@@ -177,6 +211,9 @@ void tsldr_acrtutil_revoke_mappings(void *data)
             tsldr_caputil_pd_revoke_page_access(m->page + j, 1);
         }
 #endif /* CONFIG_BATCHING_MAP */
+
+        loader->allowed_mappings[i] = ACCESS_RIGHTS_UNSET;
+
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
     }
     tsldr_caputil_pd_revoke_vspace_access();
@@ -246,20 +283,33 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
         case TYPE_CHANNEL:
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
             TSLDR_ASSERT(tsldr_acrtutil_check_channel(entry->data, NULL, mdinfo));
-            loader->allowed_channels[entry->data] = true;
+            if (loader->allowed_channels[entry->data] == ACCESS_RIGHTS_USED) {
+                loader->allowed_channels[entry->data] = ACCESS_RIGHTS_KEEP;
+            } else {
+                loader->allowed_channels[entry->data] = ACCESS_RIGHTS_ALLOWED;
+            }
             break;
 
         case TYPE_IRQ:
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
             TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data, mdinfo));
-            loader->allowed_irqs[entry->data] = true;
+            if (loader->allowed_irqs[entry->data] == ACCESS_RIGHTS_USED) {
+                loader->allowed_irqs[entry->data] = ACCESS_RIGHTS_KEEP;
+            } else {
+                loader->allowed_irqs[entry->data] = ACCESS_RIGHTS_ALLOWED;
+            }
             break;
 
         case TYPE_MEMORY:
             TSLDR_ASSERT(loader->mp_cnt < MICROKIT_MAX_CHANNELS);
             uintptr_t m = tsldr_acrtutil_check_mapping(entry->data, mdinfo);
             TSLDR_ASSERT(m);
-            loader->allowed_mappings[loader->mp_cnt++] = (seL4_Word)m;
+            if (loader->allowed_mappings[loader->mp_cnt] == ACCESS_RIGHTS_USED) {
+                loader->allowed_mappings[loader->mp_cnt] = ACCESS_RIGHTS_KEEP;
+            } else {
+                loader->allowed_mappings[loader->mp_cnt] = ACCESS_RIGHTS_ALLOWED;
+            }
+            loader->mapping_data[loader->mp_cnt++] = (seL4_Word)m;
             break;
 
         default:
