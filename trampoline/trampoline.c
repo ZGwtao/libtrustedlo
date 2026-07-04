@@ -61,6 +61,7 @@ void trampoline_entry(const trampoline_args_t *args)
         );
     }
 
+    // TODO: make this a hook than hardcode the value
     seL4_SetMR(0, 20);
     seL4_MessageInfo_t info = seL4_Call(
         args->monitor_channel, seL4_MessageInfo_new(0, 0, 0, 1)
