@@ -60,7 +60,8 @@ void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
         return;
     }
     /* clean up all ACCESS_RIGHTS_USED caps */
-    tsldr_acrtutil_revoke_channels(loader, mdinfo);
+    tsldr_acrtutil_revoke_notifications(loader, mdinfo);
+    tsldr_acrtutil_revoke_ppcs(loader, mdinfo);
     tsldr_acrtutil_revoke_irqs(loader, mdinfo);
     tsldr_acrtutil_revoke_mappings(loader);
     /* once finished, all USED are UNSET */
@@ -79,7 +80,8 @@ void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
     /* for ACCESS_RIGHTS_ALLOWED, create them from backup CNode */
     /* for ACCESS_RIGHTS_UNSET, do nothing */
     /* and there should not be any other states (all USED are UNSET from remove_caps) */
-    tsldr_acrtutil_restore_channels(loader, mdinfo);
+    tsldr_acrtutil_restore_notifications(loader, mdinfo);
+    tsldr_acrtutil_restore_ppcs(loader, mdinfo);
     tsldr_acrtutil_restore_irqs(loader, mdinfo);
     tsldr_acrtutil_restore_mappings(loader);
 }
@@ -257,5 +259,8 @@ void tsldr_main_monitor_privilege_pd(seL4_Word cid)
 
 void tsldr_main_monitor_encode_required_rights(void *base, tsldr_acrtreq_t *req_acrt)
 {
-    tsldr_acrtutil_encode_rights(base, req_acrt->channels, req_acrt->num_req_channels, req_acrt->irqs, req_acrt->num_req_irqs, req_acrt->mappings, req_acrt->num_req_mappings);
+    tsldr_acrtutil_encode_rights(base,
+        req_acrt->notifications, req_acrt->num_req_notifications, req_acrt->ppcs, req_acrt->num_req_ppcs,
+        req_acrt->irqs, req_acrt->num_req_irqs, req_acrt->ioports, req_acrt->num_req_ioports,
+        req_acrt->mappings, req_acrt->num_req_mappings);
 }

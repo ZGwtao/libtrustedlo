@@ -38,21 +38,25 @@ typedef struct {
 
 typedef struct {
     size_t        child_id;
-    seL4_Word     system_hash;
-    uint8_t       channels[MICROKIT_MAX_CHANNELS];
-    uint8_t       cstate[MICROKIT_MAX_CHANNELS];
+    uint8_t       notifications[MICROKIT_MAX_CHANNELS];
+    uint8_t       ppcs[MICROKIT_MAX_CHANNELS];
     seL4_Word     irqs[MICROKIT_MAX_CHANNELS];
+    uint8_t       ioports[MICROKIT_MAX_CHANNELS];
     tsldr_mapping_t mappings[MICROKIT_MAX_CHANNELS];
     bool          init;
 } tsldr_mdinfo_t;
 
 
 typedef struct {
-    seL4_Word num_req_channels;
+    seL4_Word num_req_notifications;
+    seL4_Word num_req_ppcs;
     seL4_Word num_req_irqs;
+    seL4_Word num_req_ioports;
     seL4_Word num_req_mappings;
-    seL4_Word channels[MICROKIT_MAX_CHANNELS];
+    seL4_Word notifications[MICROKIT_MAX_CHANNELS];
+    seL4_Word ppcs[MICROKIT_MAX_CHANNELS];
     seL4_Word irqs[MICROKIT_MAX_CHANNELS];
+    seL4_Word ioports[MICROKIT_MAX_CHANNELS];
     seL4_Word mappings[MICROKIT_MAX_CHANNELS];
 } tsldr_acrtreq_t;
 
@@ -83,10 +87,10 @@ typedef struct {
     bool restore;
     bool init;
 
-    access_rights_state_t allowed_channels[MICROKIT_MAX_CHANNELS];
-
+    access_rights_state_t allowed_notifications[MICROKIT_MAX_CHANNELS];
+    access_rights_state_t allowed_ppcs[MICROKIT_MAX_CHANNELS];
     access_rights_state_t allowed_irqs[MICROKIT_MAX_CHANNELS];
-
+    access_rights_state_t allowed_ioports[MICROKIT_MAX_CHANNELS];
     access_rights_state_t allowed_mappings[MICROKIT_MAX_CHANNELS];
 
     seL4_Word mapping_data[MICROKIT_MAX_CHANNELS];
@@ -102,9 +106,11 @@ typedef void (*entry_fn_t)(void);
 
 
 enum {
-    TYPE_CHANNEL = 0x01,
-    TYPE_IRQ     = 0x02,
-    TYPE_MEMORY  = 0x03,
+    TYPE_NOTIFICATION = 0x01,
+    TYPE_PPC     = 0x02,
+    TYPE_IRQ     = 0x03,
+    TYPE_IOPORT  = 0x04,
+    TYPE_MEMORY  = 0x05,
 };
 
 

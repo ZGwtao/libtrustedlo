@@ -15,14 +15,18 @@ inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
     return 0x0;
 }
 
-inline uint8_t tsldr_acrtutil_check_channel(seL4_Word channel, uint8_t *cstate, void *mdinfo)
+inline uint8_t tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    if (cstate != NULL) {
-        *cstate = md->cstate[channel];
-    }
-    return md->channels[channel];
+    return md->notifications[ntfn];
 }
+
+inline uint8_t tsldr_acrtutil_check_ppc(seL4_Word ppc, void *mdinfo)
+{
+    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
+    return md->ppcs[ppc];
+}
+
 
 inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
 {
@@ -30,44 +34,75 @@ inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
     return md->irqs[irq];
 }
 
+inline uint8_t tsldr_acrtutil_check_ioport(seL4_Word ioport, void *mdinfo)
+{
+    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
+    return md->ioports[ioport];
+}
+
 /* once uncomment this, you will map all frames one by one */
 // #undef CONFIG_BATCHING_MAP
 
 
-/* Restore disallowed channel capabilities from last run */
-void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
+/* Restore disallowed notification capabilities from last run */
+void tsldr_acrtutil_restore_notifications(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
 
-    for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
+    for (seL4_Word ntfn = 0; ntfn < MICROKIT_MAX_CHANNELS; ntfn++) {
         /*
-         * If the channel id points to an allowed channel,
+         * If the notification id points to an allowed notification number,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_channels[channel] == ACCESS_RIGHTS_KEEP) {
-            loader->allowed_channels[channel] = ACCESS_RIGHTS_USED;
+        if (loader->allowed_notifications[ntfn] == ACCESS_RIGHTS_KEEP) {
+            loader->allowed_notifications[ntfn] = ACCESS_RIGHTS_USED;
             continue;
         }
-        if (loader->allowed_channels[channel] == ACCESS_RIGHTS_UNSET) {
+        if (loader->allowed_notifications[ntfn] == ACCESS_RIGHTS_UNSET) {
             continue;
         }
-        /* try to record channel state: pp or notification */
-        uint8_t is_ppc = 0;
-
-        /* the channel id given is invalid, skip it */
-        if (tsldr_acrtutil_check_channel(channel, &is_ppc, mdinfo) == false) {
+        /* the notification id given is invalid, skip it */
+        if (tsldr_acrtutil_check_notification(ntfn, mdinfo) == false) {
             continue;
         }
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "channel '%d' to restore\n", channel);
-        if (is_ppc)
-            tsldr_caputil_restore_ppc_cap(channel);
-        else
-            tsldr_caputil_restore_notification_cap(channel);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "notification '%d' to restore\n", ntfn);
 
-        loader->allowed_channels[channel] = ACCESS_RIGHTS_USED;
+        tsldr_caputil_restore_notification_cap(ntfn);
+        loader->allowed_notifications[ntfn] = ACCESS_RIGHTS_USED;
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore channel '%d'\n", channel);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore notification '%d'\n", ntfn);
+    }
+}
+
+/* Restore disallowed PPC capabilities from last run */
+void tsldr_acrtutil_restore_ppcs(void *data, void *mdinfo)
+{
+    /* initialise trusted loader context */
+    tsldr_context_t *loader = (tsldr_context_t *)data;
+
+    for (seL4_Word ppc = 0; ppc < MICROKIT_MAX_CHANNELS; ppc++) {
+        /*
+         * If the PPC id points to an allowed PPC number,
+         * we don't need to restore it as it stays in the CNode
+         */
+        if (loader->allowed_ppcs[ppc] == ACCESS_RIGHTS_KEEP) {
+            loader->allowed_ppcs[ppc] = ACCESS_RIGHTS_USED;
+            continue;
+        }
+        if (loader->allowed_ppcs[ppc] == ACCESS_RIGHTS_UNSET) {
+            continue;
+        }
+        /* the PPC id given is invalid, skip it */
+        if (tsldr_acrtutil_check_ppc(ppc, mdinfo) == false) {
+            continue;
+        }
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ppc '%d' to restore\n", ppc);
+
+        tsldr_caputil_restore_ppc_cap(ppc);
+        loader->allowed_ppcs[ppc] = ACCESS_RIGHTS_USED;
+
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore ppc '%d'\n", ppc);
     }
 }
 
@@ -136,36 +171,53 @@ void tsldr_acrtutil_restore_mappings(void *data)
 }
 
 
-void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
+void tsldr_acrtutil_revoke_notifications(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
 
-    for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
+    for (seL4_Word ntfn = 0; ntfn < MICROKIT_MAX_CHANNELS; ntfn++) {
 
         /* we simply ignore 'unset' as they never exist,*/
         /* and for allowed they should be created */
         /* for keep they should be ignored as well */
-        if (loader->allowed_channels[channel] != ACCESS_RIGHTS_USED) {
+        if (loader->allowed_notifications[ntfn] != ACCESS_RIGHTS_USED) {
             continue;
         }
 
-        /* try to record channel state: pp or notification */
-        uint8_t is_ppc = 0;
-
-        /* the channel id given is invalid, skip it as no need to delete it */
-        if (tsldr_acrtutil_check_channel(channel, &is_ppc, mdinfo) == false) {
+        /* the notification id given is invalid, skip it as no need to delete it */
+        if (tsldr_acrtutil_check_notification(ntfn, mdinfo) == false) {
             continue;
         }
-        if (is_ppc) {
-            tsldr_caputil_revoke_ppc_cap(channel);
-        } else {
-            tsldr_caputil_revoke_notification_cap(channel);
+        tsldr_caputil_revoke_notification_cap(ntfn);
+        loader->allowed_notifications[ntfn] = ACCESS_RIGHTS_UNSET;
+
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke notification '%d'\n", ntfn);
+    }
+}
+
+void tsldr_acrtutil_revoke_ppcs(void *data, void *mdinfo)
+{
+    /* initialise trusted loader context */
+    tsldr_context_t *loader = (tsldr_context_t *)data;
+
+    for (seL4_Word ppc = 0; ppc < MICROKIT_MAX_CHANNELS; ppc++) {
+
+        /* we simply ignore 'unset' as they never exist,*/
+        /* and for allowed they should be created */
+        /* for keep they should be ignored as well */
+        if (loader->allowed_ppcs[ppc] != ACCESS_RIGHTS_USED) {
+            continue;
         }
 
-        loader->allowed_channels[channel] = ACCESS_RIGHTS_UNSET;
+        /* the ppc id given is invalid, skip it as no need to delete it */
+        if (tsldr_acrtutil_check_ppc(ppc, mdinfo) == false) {
+            continue;
+        }
+        tsldr_caputil_revoke_ppc_cap(ppc);
+        loader->allowed_ppcs[ppc] = ACCESS_RIGHTS_UNSET;
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke channel '%d'\n", channel);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke ppc '%d'\n", ppc);
     }
 }
 
@@ -253,12 +305,21 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 }
 
 
-void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps)
+void tsldr_acrtutil_encode_rights(void *base,
+    seL4_Word notifications[], size_t n_notifications, seL4_Word ppcs[], size_t n_ppcs,
+    seL4_Word irqs[], size_t n_irqs, seL4_Word ioports[], size_t n_ioports,
+    seL4_Word mappings[], size_t n_mappings
+)
 {
     tsldr_acrt_entry_t *p = (tsldr_acrt_entry_t *)base;
-    for (size_t i = 0; i < n_channels; ++i) {
-        p->type = (uint8_t)TYPE_CHANNEL;
-        p->data = channels[i];
+    for (size_t i = 0; i < n_notifications; ++i) {
+        p->type = (uint8_t)TYPE_NOTIFICATION;
+        p->data = notifications[i];
+        p++;
+    }
+    for (size_t i = 0; i < n_ppcs; ++i) {
+        p->type = (uint8_t)TYPE_PPC;
+        p->data = ppcs[i];
         p++;
     }
     for (size_t i = 0; i < n_irqs; ++i) {
@@ -266,7 +327,12 @@ void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_cha
         p->data = irqs[i];
         p++;
     }
-    for (size_t i = 0; i < n_mps; ++i) {
+    for (size_t i = 0; i < n_ioports; ++i) {
+        p->type = (uint8_t)TYPE_IOPORT;
+        p->data = ioports[i];
+        p++;
+    }
+    for (size_t i = 0; i < n_mappings; ++i) {
         p->type = (uint8_t)TYPE_MEMORY;
         p->data = mappings[i];
         p++;
@@ -280,16 +346,28 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
     tsldr_acrt_entry_t *entry = (tsldr_acrt_entry_t *)input;
 
     switch (entry->type) {
-        case TYPE_CHANNEL:
+        case TYPE_NOTIFICATION:
+        {
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-            TSLDR_ASSERT(tsldr_acrtutil_check_channel(entry->data, NULL, mdinfo));
-            if (loader->allowed_channels[entry->data] == ACCESS_RIGHTS_USED) {
-                loader->allowed_channels[entry->data] = ACCESS_RIGHTS_KEEP;
+            TSLDR_ASSERT(tsldr_acrtutil_check_notification(entry->data, mdinfo));
+            if (loader->allowed_notifications[entry->data] == ACCESS_RIGHTS_USED) {
+                loader->allowed_notifications[entry->data] = ACCESS_RIGHTS_KEEP;
             } else {
-                loader->allowed_channels[entry->data] = ACCESS_RIGHTS_ALLOWED;
+                loader->allowed_notifications[entry->data] = ACCESS_RIGHTS_ALLOWED;
             }
             break;
-
+        }
+        case TYPE_PPC:
+        {
+            TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
+            TSLDR_ASSERT(tsldr_acrtutil_check_ppc(entry->data, mdinfo));
+            if (loader->allowed_ppcs[entry->data] == ACCESS_RIGHTS_USED) {
+                loader->allowed_ppcs[entry->data] = ACCESS_RIGHTS_KEEP;
+            } else {
+                loader->allowed_ppcs[entry->data] = ACCESS_RIGHTS_ALLOWED;
+            }
+            break;
+        }
         case TYPE_IRQ:
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
             TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data, mdinfo));
@@ -311,7 +389,8 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
             }
             loader->mapping_data[loader->mp_cnt++] = (seL4_Word)m;
             break;
-
+        case TYPE_IOPORT:
+            // TODO: implement this when we support x86 ioports
         default:
             microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
             microkit_dbg_puts(" tsldr_acrtutil_add_rights_to_whitelist: ");
