@@ -37,13 +37,13 @@ typedef struct {
 
 
 typedef struct {
-    size_t        child_id;
-    uint8_t       notifications[MICROKIT_MAX_CHANNELS];
-    uint8_t       ppcs[MICROKIT_MAX_CHANNELS];
-    seL4_Word     irqs[MICROKIT_MAX_CHANNELS];
-    uint8_t       ioports[MICROKIT_MAX_CHANNELS];
+    size_t      child_id;
+    seL4_Word   bitmap_notifications;
+    seL4_Word   bitmap_ppcs;
+    seL4_Word   bitmap_irqs;
+    seL4_Word   bitmap_ioports;
     tsldr_mapping_t mappings[MICROKIT_MAX_CHANNELS];
-    bool          init;
+    bool        init;
 } tsldr_mdinfo_t;
 
 

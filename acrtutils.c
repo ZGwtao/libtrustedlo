@@ -15,29 +15,28 @@ inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
     return 0x0;
 }
 
-inline uint8_t tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo)
+bool tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->notifications[ntfn];
+    return md->bitmap_notifications & (1 << ntfn);
 }
 
-inline uint8_t tsldr_acrtutil_check_ppc(seL4_Word ppc, void *mdinfo)
+bool tsldr_acrtutil_check_ppc(seL4_Word ppc, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->ppcs[ppc];
+    return md->bitmap_ppcs & (1 << ppc);
 }
 
-
-inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
+bool tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->irqs[irq];
+    return md->bitmap_irqs & (1 << irq);
 }
 
-inline uint8_t tsldr_acrtutil_check_ioport(seL4_Word ioport, void *mdinfo)
+bool tsldr_acrtutil_check_ioport(seL4_Word ioport, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->ioports[ioport];
+    return md->bitmap_ioports & (1 << ioport);
 }
 
 /* once uncomment this, you will map all frames one by one */
