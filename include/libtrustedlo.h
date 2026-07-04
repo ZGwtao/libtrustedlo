@@ -5,9 +5,6 @@
 #include <microkit.h>
 #include <miscutils.h>
 
-/* use ED25519 algorithm for encryption now */
-#define PUBLIC_KEY_BYTES        32
-
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
 

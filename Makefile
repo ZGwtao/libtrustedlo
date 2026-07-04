@@ -23,53 +23,90 @@ ifndef TARGET
 $(error TARGET is not set)
 endif
 
-ifndef LIBTRUSTEDLO_PATH
-$(error LIBTRUSTEDLO_PATH is not set)
-endif
+LIBTRUSTEDLO_PATH ?= $(CURDIR)
+.DEFAULT_GOAL := all
+
+BOARD_DIR := \
+	$(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
 ifdef LLVM
 CC := clang
 LD := ld.lld
-LIBTSLDR_CFLAGS = -target $(TARGET) -Wno-unused-command-line-argument
+AR := llvm-ar
+
+ARCH_CFLAGS := \
+	-target $(TARGET) \
+	-Wno-unused-command-line-argument
+
+ARCH_LDFLAGS :=
 else
 ifndef TOOLCHAIN
-$(error your TOOLCHAIN triple must be specified for non-LLVM toolchain setup. E.g. TOOLCHAIN = aarch64-none-elf)
-else
-
-CC ?= $(TOOLCHAIN)-gcc
-LD ?= $(TOOLCHAIN)-ld
-LIBTSLDR_LDFLAGS =
-
-endif
+$(error TOOLCHAIN must be specified for a non-LLVM build)
 endif
 
-BOARD_DIR ?= $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
+CC := $(TOOLCHAIN)-gcc
+LD := $(TOOLCHAIN)-ld
+AR := $(TOOLCHAIN)-ar
 
-TSLDR_OBJS :=  \
-	trustedloader.o \
-	caputils.o acrtutils.o miscutils.o
+ARCH_CFLAGS :=
+ARCH_LDFLAGS :=
+endif
 
-LIBTSLDR_SRC_DIR ?= $(LIBTRUSTEDLO_PATH)
-LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
-LIBTSLDR_OBJS := $(addprefix $(LIBTSLDR_BUILD_DIR)/,$(TSLDR_OBJS))
-LIBTSLDR := $(LIBTSLDR_BUILD_DIR)/libtrustedlo.a
+export CC
+export LD
+export AR
+export ARCH_CFLAGS
+export ARCH_LDFLAGS
+export BOARD_DIR
+export BUILD_DIR
+export LIBTRUSTEDLO_PATH
 
-LIBTSLDR_CFLAGS += -nostdlib -ffreestanding -g -O3 \
-          			-Wall -Wno-unused-function -Werror \
-          			-I$(BOARD_DIR)/include \
-					-I$(LIBTSLDR_SRC_DIR)/include
+LIB_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
+LIBTRUSTEDLO  := $(LIB_BUILD_DIR)/libtrustedlo.a
 
-all: $(LIBTSLDR)
+TRAMPOLINE_ELF := \
+	$(LIB_BUILD_DIR)/trampoline.elf
 
-# Build directory as a real target
-$(LIBTSLDR_BUILD_DIR):
+LIB_SOURCES := \
+	trustedloader.c \
+	caputils.c \
+	acrtutils.c \
+	miscutils.c \
+	memory.c
+
+LIB_OBJECTS := \
+	$(patsubst %.c,$(LIB_BUILD_DIR)/%.o,$(LIB_SOURCES))
+
+LIB_CFLAGS := \
+	$(ARCH_CFLAGS) \
+	-ffreestanding \
+	-fno-builtin \
+	-fno-stack-protector \
+	-O3 \
+	-g \
+	-Wall \
+	-Wno-unused-function \
+	-Werror \
+	-I$(BOARD_DIR)/include \
+	-I$(LIBTRUSTEDLO_PATH)/include
+
+include $(LIBTRUSTEDLO_PATH)/trampoline/tp.mk
+
+.PHONY: all trampoline library clean
+
+all: trampoline library 
+
+library: $(LIBTRUSTEDLO)
+
+$(LIB_BUILD_DIR):
 	mkdir -p $@
 
-# Object rules depend on the directory, not a phony
-$(LIBTSLDR_BUILD_DIR)/%.o: $(LIBTSLDR_SRC_DIR)/%.c | $(LIBTSLDR_BUILD_DIR)
-	$(CC) -c $(LIBTSLDR_CFLAGS) $< -o $@
+$(LIB_BUILD_DIR)/%.o: $(LIBTRUSTEDLO_PATH)/%.c
+	mkdir -p $(dir $@)
+	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
-# Archive rule
-$(LIBTSLDR): $(LIBTSLDR_OBJS)
-	$(LD) $(LIBTSLDR_LDFLAGS) -r $^ -o $@
-	rm $(LIBTSLDR_OBJS)
+$(LIBTRUSTEDLO): $(LIB_OBJECTS)
+	$(AR) rcs $@ $^
+
+clean:
+	rm -rf $(LIB_BUILD_DIR)
