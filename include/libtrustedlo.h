@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <microkit.h>
 #include <miscutils.h>
+#include <trampoline.h>
 
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
@@ -98,8 +99,7 @@ typedef struct {
 
 _Static_assert(sizeof(tsldr_context_t) <= 0x1000, "unexpected tsldr_context_t size");
 
-
-typedef void (*entry_fn_t)(void);
+typedef void (*entry_fn_t)(const trampoline_args_t *);
 
 
 enum {
@@ -164,7 +164,8 @@ void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack);
 void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader);
 
 
-__attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
+__attribute__((noreturn))
+void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args);
 
 
 void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err);

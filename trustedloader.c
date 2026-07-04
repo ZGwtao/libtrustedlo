@@ -120,27 +120,23 @@ void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader)
 
 #if defined(CONFIG_ARCH_X86_64)
 __attribute__((naked, noreturn)) /* don't let your compiler fuck around with the args */
-void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
+void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
     __asm__ volatile(
-        "mov %rdi, %rsp\n\t"   /* new_stack in rdi */
-        "jmp *%rsi\n\t"        /* entry in rsi */
+        "mov %rdi, %rsp\n\t"
+        "mov %rdx, %rdi\n\t"
+        "jmp *%rsi\n\t"
     );
 }
 #elif defined(CONFIG_ARCH_AARCH64)
-__attribute__((noreturn))
-void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
+__attribute__((naked, noreturn))
+void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
-    /* jump tp trampoline */
-    asm volatile (
-        "mov sp, %[new_stack]\n\t" /* set new SP */
-        "br  %[func]\n\t"          /* branch directly, never return */
-        :
-        : [new_stack] "r" (new_stack),
-          [func] "r" (entry)
-        : "x30", "memory"
+    __asm__ volatile(
+        "mov sp, x0\n\t"
+        "mov x0, x2\n\t"
+        "br x1\n\t"
     );
-    __builtin_unreachable();
 }
 #else
 #error "Unsupported architecture for 'tsldr_main_jump_with_stack'"
@@ -189,43 +185,129 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
 
 }
 
+#define TRAMPOLINE_ARGS_ADDR (0xA02000)
 
-void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
+void tsldr_main_self_loading(
+    void *mdinfo,
+    void *acrt_stat_base,
+    tsldr_context_t *context,
+    uintptr_t client_elf,
+    uintptr_t client_exec_region,
+    uintptr_t trampoline_elf,
+    uintptr_t trampoline_stack_top)
 {
     tsldr_main_loading_prologue(mdinfo, context);
 
     seL4_Word err;
-    /* start to parse client elf information */
+
     tsldr_main_check_elf_integrity(client_elf, &err);
     if (err) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Failed to check client elf integrity\n");
+        TSLDR_DBG_PRINT(
+            LIB_NAME_MACRO "Failed to check client elf integrity\n"
+        );
         return;
     }
+
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
+
     tsldr_main_check_elf_integrity(trampoline_elf, &err);
     if (err) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Failed to check trampoline elf integrity\n");
+        TSLDR_DBG_PRINT(
+            LIB_NAME_MACRO "Failed to check trampoline elf integrity\n"
+        );
         return;
     }
+
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
+    tsldr_main_handle_access_rights(
+        context,
+        acrt_stat_base,
+        mdinfo
+    );
 
-    tsldr_main_handle_access_rights(context, acrt_stat_base, mdinfo);
+    tsldr_main_loading_epilogue(
+        client_exec_region,
+        (uintptr_t)0x0
+    );
 
+    tsldr_miscutil_load_elf(
+        (void *)(uintptr_t)ehdr->e_entry,
+        ehdr
+    );
 
-    tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
+    TSLDR_DBG_PRINT(
+        LIB_NAME_MACRO
+        "Load client elf to the targeting memory region\n"
+    );
 
-    tsldr_miscutil_load_elf((void *)ehdr->e_entry, ehdr);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Load client elf to the targeting memory region\n");
+    tsldr_miscutil_load_elf(
+        (void *)(uintptr_t)trampoline_ehdr->e_entry,
+        trampoline_ehdr
+    );
 
-    tsldr_miscutil_load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Load trampoline elf to the targeting memory region\n");
+    TSLDR_DBG_PRINT(
+        LIB_NAME_MACRO
+        "Load trampoline elf to the targeting memory region\n"
+    );
 
-    /* -- now we are ready to jump to the trampoline -- */
+#if defined(CONFIG_ARCH_X86_64)
+    uintptr_t tsldr_stack_bottom = (0x7fffffffe000);
+#elif defined(CONFIG_ARCH_AARCH64)
+    uintptr_t tsldr_stack_bottom = (0x0000000fffffff000);
+#else
+#error "Unsupported architecture"
+#endif
 
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute: stack: %x, entry: %x\n",
-                    (void *)trampoline_stack_top, (void *)trampoline_ehdr->e_entry);
-    tsldr_main_jump_with_stack((void *)trampoline_stack_top, (entry_fn_t)trampoline_ehdr->e_entry);   
+    trampoline_args_t *args =
+        (trampoline_args_t *)TRAMPOLINE_ARGS_ADDR;
+
+    *args = (trampoline_args_t) {
+        .regions = {
+            [REGION_TSLDR_STACK] = {
+                tsldr_stack_bottom,
+                (uintptr_t)0x1000,
+            },
+            [REGION_TSLDR_METADATA] = {
+                (uintptr_t)0xA00000,
+                (uintptr_t)0x1000,
+            },
+            [REGION_OSSVC_METADATA] = {
+                (uintptr_t)0xA01000,
+                (uintptr_t)0x1000,
+            },
+            [REGION_CONTAINER_STACK] = {
+                (uintptr_t)0xFFFBFF000,
+                (uintptr_t)0x1000,
+            },
+            [REGION_TSLDR_CONTEXT] = {
+                (uintptr_t)0xE00000,
+                (uintptr_t)0x1000,
+            },
+            [REGION_TSLDR_PROGRAM] = {
+                (uintptr_t)0x200000,
+                (uintptr_t)0x800000,
+            },
+        },
+        .container_stack_top = (uintptr_t)0x00FFFC00000,
+        .client_elf = (uintptr_t)ehdr->e_entry,
+        .ipc_buffer = (uintptr_t)0x100000,
+        .monitor_channel = 74 + 15,
+    };
+
+    TSLDR_DBG_PRINT(
+        LIB_NAME_MACRO
+        "Switch to the trampoline's code to execute: "
+        "stack: %x, entry: %x\n",
+        (void *)trampoline_stack_top,
+        (void *)(uintptr_t)trampoline_ehdr->e_entry
+    );
+
+    tsldr_main_jump_with_stack(
+        (void *)trampoline_stack_top,
+        (entry_fn_t)(uintptr_t)trampoline_ehdr->e_entry,
+        args
+    );
 }
 
 
