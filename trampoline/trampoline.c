@@ -82,17 +82,6 @@ void trampoline_entry(const trampoline_args_t *args)
     entry_fn_t entry =
         (entry_fn_t)(uintptr_t)args->client_elf;
 
-    client_args_t *client_args =
-        (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
-    client_args->bitmap_irqs = 0;
-    client_args->bitmap_notifications = 0xfffffffff;
-    client_args->bitmap_ppcs = 0xfffffffff;
-    client_args->bitmap_ioports = 0;
-
-    char dynamic_pd_name[64] = "client_pd";
-    tsldr_miscutil_memcpy(client_args->dynamic_pd_name, dynamic_pd_name, sizeof(dynamic_pd_name));
-    client_args->dynamic_pd_name[sizeof(client_args->dynamic_pd_name) - 1] = '\0';
-
     jump_with_stack(
         (void *)args->container_stack_top,
         entry

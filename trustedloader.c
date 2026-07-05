@@ -295,6 +295,36 @@ void tsldr_main_self_loading(
         .monitor_channel = 74 + 15,
     };
 
+    tsldr_mdinfo_t *mdi = (tsldr_mdinfo_t *)mdinfo;
+
+    seL4_Word bitmap_opt_notifications = 0;
+    seL4_Word bitmap_opt_ppcs = 0;
+
+    for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
+        if (context->allowed_notifications[i] == ACCESS_RIGHTS_USED) {
+            bitmap_opt_notifications |= (1 << i);
+        }
+        if (context->allowed_ppcs[i] == ACCESS_RIGHTS_USED) {
+            bitmap_opt_ppcs |= (1 << i);
+        }
+    }
+
+    seL4_Word bitmap_notifications = 
+        (mdi->microkit_notifications & (~mdi->bitmap_opt_notifications)) | bitmap_opt_notifications;
+
+    seL4_Word bitmap_ppcs = 
+        (mdi->microkit_pps & (~mdi->bitmap_opt_ppcs)) | bitmap_opt_ppcs;
+
+    client_args_t *cargs =
+        (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
+
+    *cargs = (client_args_t) {
+        .bitmap_notifications = bitmap_notifications,
+        .bitmap_ppcs = bitmap_ppcs,
+        .bitmap_irqs = mdi->microkit_irqs,
+        .bitmap_ioports = mdi->microkit_ioports,
+    };
+
     TSLDR_DBG_PRINT(
         LIB_NAME_MACRO
         "Switch to the trampoline's code to execute: "

@@ -36,10 +36,14 @@ typedef struct {
 
 typedef struct {
     size_t      child_id;
-    seL4_Word   bitmap_notifications;
-    seL4_Word   bitmap_ppcs;
-    seL4_Word   bitmap_irqs;
-    seL4_Word   bitmap_ioports;
+    seL4_Word   bitmap_opt_notifications;
+    seL4_Word   bitmap_opt_ppcs;
+    seL4_Word   bitmap_opt_irqs;
+    seL4_Word   bitmap_opt_ioports;
+    seL4_Word   microkit_notifications;
+    seL4_Word   microkit_pps;
+    seL4_Word   microkit_irqs;
+    seL4_Word   microkit_ioports;
     tsldr_mapping_t mappings[MICROKIT_MAX_CHANNELS];
     bool        init;
 } tsldr_mdinfo_t;

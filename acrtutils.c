@@ -18,25 +18,25 @@ inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
 bool tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->bitmap_notifications & (1 << ntfn);
+    return md->bitmap_opt_notifications & (1 << ntfn);
 }
 
 bool tsldr_acrtutil_check_ppc(seL4_Word ppc, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->bitmap_ppcs & (1 << ppc);
+    return md->bitmap_opt_ppcs & (1 << ppc);
 }
 
 bool tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->bitmap_irqs & (1 << irq);
+    return md->bitmap_opt_irqs & (1 << irq);
 }
 
 bool tsldr_acrtutil_check_ioport(seL4_Word ioport, void *mdinfo)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
-    return md->bitmap_ioports & (1 << ioport);
+    return md->bitmap_opt_ioports & (1 << ioport);
 }
 
 /* once uncomment this, you will map all frames one by one */
