@@ -32,4 +32,12 @@ typedef struct {
     seL4_CPtr monitor_channel;
 } trampoline_args_t;
 
+typedef struct {
+    seL4_Word bitmap_irqs;
+    seL4_Word bitmap_notifications;
+    seL4_Word bitmap_ppcs;
+    seL4_Word bitmap_ioports;
+    char dynamic_pd_name[64];
+} client_args_t;
+
 #endif
