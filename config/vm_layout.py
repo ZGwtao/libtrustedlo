@@ -27,19 +27,29 @@ VM_REGIONS = [
         "size": PAGE_SIZE,
     },
     {
+        "name": "LOADER_CONTEXT",
+        "base": 0x00E00000,
+        "size": PAGE_SIZE,
+    },
+    {
+        "name": "TRAMPOLINE_IMAGE",
+        "base": 0x01000000,
+        "size": 0x00800000,
+    },
+    {
         "name": "TRAMPOLINE_PROGRAM",
         "base": 0x01800000,
+        "size": 0x00800000,
+    },
+    {
+        "name": "CONTAINER_IMAGE",
+        "base": 0x02000000,
         "size": 0x00800000,
     },
     {
         "name": "CONTAINER_PROGRAM",
         "base": 0x02800000,
         "size": 0x00800000,
-    },
-    {
-        "name": "LOADER_CONTEXT",
-        "base": 0x00E00000,
-        "size": PAGE_SIZE,
     },
     {
         "name": "CONTAINER_STACK",
@@ -50,15 +60,5 @@ VM_REGIONS = [
         "name": "TRAMPOLINE_STACK",
         "base": 0x0000000FFFE00000,
         "size": PAGE_SIZE,
-    },
-    {
-        "name": "TRAMPOLINE_IMAGE",
-        "base": 0x01000000,
-        "size": 0x00800000,
-    },
-    {
-        "name": "CONTAINER_IMAGE",
-        "base": 0x02000000,
-        "size": 0x00800000,
     },
 ]

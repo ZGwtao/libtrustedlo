@@ -211,8 +211,7 @@ void tsldr_main_self_loading(void)
     uintptr_t trampoline_elf =
         tsldr_vm_layout.trampoline_image.base;
 
-    uintptr_t trampoline_stack_top =
-        tsldr_vm_layout.trampoline_stack.base;
+    uintptr_t trampoline_stack_top = TSLDR_VM_TRAMPOLINE_STACK_END;
 
     tsldr_main_loading_prologue(mdinfo, context);
 
