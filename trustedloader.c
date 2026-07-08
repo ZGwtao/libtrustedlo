@@ -2,6 +2,7 @@
 #include <acrtutils.h>
 #include <caputils.h>
 #include <libtrustedlo.h>
+#include <tsldr_vm_layout.h>
 
 void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 {
@@ -185,8 +186,6 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
 
 }
 
-#define TRAMPOLINE_ARGS_ADDR (0xA02000)
-
 void tsldr_main_self_loading(
     void *mdinfo,
     void *acrt_stat_base,
@@ -260,38 +259,38 @@ void tsldr_main_self_loading(
 #endif
 
     trampoline_args_t *args =
-        (trampoline_args_t *)TRAMPOLINE_ARGS_ADDR;
+        (trampoline_args_t *)tsldr_vm_layout.trampoline_args.base;
 
     *args = (trampoline_args_t) {
         .regions = {
             [REGION_TSLDR_STACK] = {
                 tsldr_stack_bottom,
-                (uintptr_t)0x1000,
+                (uintptr_t)TSLDR_VM_PAGE_SIZE,
             },
             [REGION_TSLDR_METADATA] = {
-                (uintptr_t)0xA00000,
-                (uintptr_t)0x1000,
+                (uintptr_t)tsldr_vm_layout.loader_metadata.base,
+                (uintptr_t)tsldr_vm_layout.loader_metadata.size,
             },
             [REGION_OSSVC_METADATA] = {
-                (uintptr_t)0xA01000,
-                (uintptr_t)0x1000,
+                (uintptr_t)tsldr_vm_layout.ossvc_metadata.base,
+                (uintptr_t)tsldr_vm_layout.ossvc_metadata.size,
             },
             [REGION_CONTAINER_STACK] = {
-                (uintptr_t)0xFFFBFF000,
-                (uintptr_t)0x1000,
+                (uintptr_t)tsldr_vm_layout.container_stack.base,
+                (uintptr_t)tsldr_vm_layout.container_stack.size,
             },
             [REGION_TSLDR_CONTEXT] = {
-                (uintptr_t)0xE00000,
-                (uintptr_t)0x1000,
+                (uintptr_t)tsldr_vm_layout.loader_context.base,
+                (uintptr_t)tsldr_vm_layout.loader_context.size,
             },
             [REGION_TSLDR_PROGRAM] = {
-                (uintptr_t)0x200000,
-                (uintptr_t)0x800000,
+                (uintptr_t)tsldr_vm_layout.loader_program.base,
+                (uintptr_t)tsldr_vm_layout.loader_program.size,
             },
         },
-        .container_stack_top = (uintptr_t)0x00FFFC00000,
+        .container_stack_top = (uintptr_t)TSLDR_VM_CONTAINER_STACK_END,
         .client_elf = (uintptr_t)ehdr->e_entry,
-        .ipc_buffer = (uintptr_t)0x100000,
+        .ipc_buffer = (uintptr_t)tsldr_vm_layout.ipc_buffer.base,
         .monitor_channel = 74 + 15,
     };
 

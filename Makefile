@@ -62,7 +62,9 @@ export BUILD_DIR
 export LIBTRUSTEDLO_PATH
 
 LIB_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
-LIBTRUSTEDLO  := $(LIB_BUILD_DIR)/libtrustedlo.a
+CFG_GEN_DIR := $(LIB_BUILD_DIR)/generated
+
+LIBTRUSTEDLO := $(LIB_BUILD_DIR)/libtrustedlo.a
 
 TRAMPOLINE_ELF := \
 	$(LIB_BUILD_DIR)/trampoline.elf
@@ -87,25 +89,53 @@ LIB_CFLAGS := \
 	-Wall \
 	-Wno-unused-function \
 	-Werror \
+	-I$(CFG_GEN_DIR) \
 	-I$(BOARD_DIR)/include \
 	-I$(LIBTRUSTEDLO_PATH)/include
 
+# ========================================================
+# Generated VM layout
+# ========================================================
+
+VM_LAYOUT_CONFIG ?= \
+	$(LIBTRUSTEDLO_PATH)/config/vm_layout.py
+
+VM_LAYOUT_GEN := \
+	$(LIBTRUSTEDLO_PATH)/tools/gen_vm_layout.py
+
+VM_LAYOUT_HEADER := \
+	$(CFG_GEN_DIR)/tsldr_vm_layout.h
+
+
+$(VM_LAYOUT_HEADER): $(VM_LAYOUT_CONFIG) $(VM_LAYOUT_GEN)
+	@mkdir -p $(dir $@)
+	python3 -B $(VM_LAYOUT_GEN) \
+		--config $(VM_LAYOUT_CONFIG) \
+		--output $@
+
+.PHONY: header
+
+header: $(VM_LAYOUT_HEADER)
+
 include $(LIBTRUSTEDLO_PATH)/trampoline/tp.mk
 
-.PHONY: all trampoline library clean
+.PHONY: all library trampoline clean
 
-all: trampoline library 
+all: trampoline library
 
 library: $(LIBTRUSTEDLO)
 
 $(LIB_BUILD_DIR):
-	mkdir -p $@
+	@mkdir -p $@
 
-$(LIB_BUILD_DIR)/%.o: $(LIBTRUSTEDLO_PATH)/%.c
-	mkdir -p $(dir $@)
+$(LIB_BUILD_DIR)/%.o: \
+	$(LIBTRUSTEDLO_PATH)/%.c \
+	$(VM_LAYOUT_HEADER)
+	@mkdir -p $(dir $@)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 $(LIBTRUSTEDLO): $(LIB_OBJECTS)
+	@mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
 
 clean:
