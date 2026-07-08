@@ -69,6 +69,9 @@ LIBTRUSTEDLO := $(LIB_BUILD_DIR)/libtrustedlo.a
 TRAMPOLINE_ELF := \
 	$(LIB_BUILD_DIR)/trampoline.elf
 
+LOADER_ELF := \
+	$(LIB_BUILD_DIR)/protocon.elf
+
 LIB_SOURCES := \
 	trustedloader.c \
 	caputils.c \
@@ -119,9 +122,9 @@ header: $(VM_LAYOUT_HEADER)
 
 include $(LIBTRUSTEDLO_PATH)/trampoline/tp.mk
 
-.PHONY: all library trampoline clean
+.PHONY: all library trampoline loader clean
 
-all: trampoline library
+all: trampoline library loader
 
 library: $(LIBTRUSTEDLO)
 
@@ -137,6 +140,8 @@ $(LIB_BUILD_DIR)/%.o: \
 $(LIBTRUSTEDLO): $(LIB_OBJECTS)
 	@mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
+
+include $(LIBTRUSTEDLO_PATH)/loader/ld.mk
 
 clean:
 	rm -rf $(LIB_BUILD_DIR)
