@@ -178,7 +178,7 @@ void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err);
 void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base, void *mdinfo);
 
 
-void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top);
+void tsldr_main_self_loading(void);
 
 
 void tsldr_main_monitor_privilege_pd(seL4_Word cid);
