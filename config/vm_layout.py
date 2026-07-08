@@ -1,64 +1,141 @@
 PAGE_SIZE = 0x1000
+GUARD_SIZE = PAGE_SIZE
+
+# Fixed regions.
+IPC_BUFFER_BASE = 0x00100000
+LOADER_PROGRAM_BASE = 0x00200000
+LOADER_PROGRAM_SIZE = 0x00800000
+
+# Non-stack regions are placed sequentially after LOADER_PROGRAM.
+# A single unmapped 4 KiB guard page separates adjacent regions.
+NON_STACK_BASE = LOADER_PROGRAM_BASE + LOADER_PROGRAM_SIZE
+
+LOADER_METADATA_BASE = NON_STACK_BASE + GUARD_SIZE
+LOADER_METADATA_SIZE = PAGE_SIZE
+
+OSSVC_METADATA_BASE = (
+    LOADER_METADATA_BASE
+    + LOADER_METADATA_SIZE
+    + GUARD_SIZE
+)
+OSSVC_METADATA_SIZE = PAGE_SIZE
+
+TRAMPOLINE_ARGS_BASE = (
+    OSSVC_METADATA_BASE
+    + OSSVC_METADATA_SIZE
+    + GUARD_SIZE
+)
+TRAMPOLINE_ARGS_SIZE = PAGE_SIZE
+
+LOADER_CONTEXT_BASE = (
+    TRAMPOLINE_ARGS_BASE
+    + TRAMPOLINE_ARGS_SIZE
+    + GUARD_SIZE
+)
+LOADER_CONTEXT_SIZE = PAGE_SIZE
+
+TRAMPOLINE_IMAGE_BASE = (
+    LOADER_CONTEXT_BASE
+    + LOADER_CONTEXT_SIZE
+    + GUARD_SIZE
+)
+TRAMPOLINE_IMAGE_SIZE = 0x00800000
+
+TRAMPOLINE_PROGRAM_BASE = (
+    TRAMPOLINE_IMAGE_BASE
+    + TRAMPOLINE_IMAGE_SIZE
+    + GUARD_SIZE
+)
+TRAMPOLINE_PROGRAM_SIZE = 0x00800000
+
+CONTAINER_IMAGE_BASE = (
+    TRAMPOLINE_PROGRAM_BASE
+    + TRAMPOLINE_PROGRAM_SIZE
+    + GUARD_SIZE
+)
+CONTAINER_IMAGE_SIZE = 0x00800000
+
+CONTAINER_PROGRAM_BASE = (
+    CONTAINER_IMAGE_BASE
+    + CONTAINER_IMAGE_SIZE
+    + GUARD_SIZE
+)
+CONTAINER_PROGRAM_SIZE = 0x00800000
+
+# Stack regions live in a separate high-address range.
+# Each stack mapping is also separated by one guard page.
+STACK_BASE = 0x60000000
+
+CONTAINER_STACK_BASE = STACK_BASE
+CONTAINER_STACK_SIZE = PAGE_SIZE
+
+TRAMPOLINE_STACK_BASE = (
+    CONTAINER_STACK_BASE
+    + CONTAINER_STACK_SIZE
+    + GUARD_SIZE
+)
+TRAMPOLINE_STACK_SIZE = PAGE_SIZE
+
 
 VM_REGIONS = [
     {
         "name": "IPC_BUFFER",
-        "base": 0x00100000,
+        "base": IPC_BUFFER_BASE,
         "size": PAGE_SIZE,
     },
     {
         "name": "LOADER_PROGRAM",
-        "base": 0x00200000,
-        "size": 0x00800000,
+        "base": LOADER_PROGRAM_BASE,
+        "size": LOADER_PROGRAM_SIZE,
     },
     {
         "name": "LOADER_METADATA",
-        "base": 0x00A00000,
-        "size": PAGE_SIZE,
+        "base": LOADER_METADATA_BASE,
+        "size": LOADER_METADATA_SIZE,
     },
     {
         "name": "OSSVC_METADATA",
-        "base": 0x00A01000,
-        "size": PAGE_SIZE,
+        "base": OSSVC_METADATA_BASE,
+        "size": OSSVC_METADATA_SIZE,
     },
     {
         "name": "TRAMPOLINE_ARGS",
-        "base": 0x00A02000,
-        "size": PAGE_SIZE,
+        "base": TRAMPOLINE_ARGS_BASE,
+        "size": TRAMPOLINE_ARGS_SIZE,
     },
     {
         "name": "LOADER_CONTEXT",
-        "base": 0x00E00000,
-        "size": PAGE_SIZE,
+        "base": LOADER_CONTEXT_BASE,
+        "size": LOADER_CONTEXT_SIZE,
     },
     {
         "name": "TRAMPOLINE_IMAGE",
-        "base": 0x01000000,
-        "size": 0x00800000,
+        "base": TRAMPOLINE_IMAGE_BASE,
+        "size": TRAMPOLINE_IMAGE_SIZE,
     },
     {
         "name": "TRAMPOLINE_PROGRAM",
-        "base": 0x01800000,
-        "size": 0x00800000,
+        "base": TRAMPOLINE_PROGRAM_BASE,
+        "size": TRAMPOLINE_PROGRAM_SIZE,
     },
     {
         "name": "CONTAINER_IMAGE",
-        "base": 0x02000000,
-        "size": 0x00800000,
+        "base": CONTAINER_IMAGE_BASE,
+        "size": CONTAINER_IMAGE_SIZE,
     },
     {
         "name": "CONTAINER_PROGRAM",
-        "base": 0x02800000,
-        "size": 0x00800000,
+        "base": CONTAINER_PROGRAM_BASE,
+        "size": CONTAINER_PROGRAM_SIZE,
     },
     {
         "name": "CONTAINER_STACK",
-        "base": 0x0000000FFFBFF000,
-        "size": PAGE_SIZE,
+        "base": CONTAINER_STACK_BASE,
+        "size": CONTAINER_STACK_SIZE,
     },
     {
         "name": "TRAMPOLINE_STACK",
-        "base": 0x0000000FFFE00000,
-        "size": PAGE_SIZE,
+        "base": TRAMPOLINE_STACK_BASE,
+        "size": TRAMPOLINE_STACK_SIZE,
     },
 ]
