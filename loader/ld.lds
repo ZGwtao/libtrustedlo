@@ -1,3 +1,5 @@
+INCLUDE tsldr_vm_layout.ld
+
 ENTRY(loader_entry)
 
 PHDRS
@@ -8,7 +10,8 @@ PHDRS
 
 SECTIONS
 {
-    . = 0x200000;
+    . = TSLDR_VM_LOADER_PROGRAM_BASE;
+    __loader_image_start = .;
 
     .text : ALIGN(16)
     {
@@ -33,6 +36,13 @@ SECTIONS
         *(COMMON)
         __bss_end = .;
     } :data
+
+    __loader_image_end = .;
+
+    ASSERT(
+        __loader_image_end <= TSLDR_VM_LOADER_PROGRAM_END,
+        "loader image exceeds LOADER_PROGRAM VM region"
+    )
 
     /DISCARD/ :
     {

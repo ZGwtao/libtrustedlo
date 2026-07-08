@@ -3,19 +3,19 @@ ifndef MICROKIT_SDK
 $(error MICROKIT_SDK is not set)
 endif
 
-ifndef BUILD_DIR 
+ifndef BUILD_DIR
 $(error BUILD_DIR is not set)
 endif
 
-ifndef MICROKIT_BOARD 
+ifndef MICROKIT_BOARD
 $(error MICROKIT_BOARD is not set)
 endif
 
-ifndef MICROKIT_CONFIG 
+ifndef MICROKIT_CONFIG
 $(error MICROKIT_CONFIG is not set)
 endif
 
-ifndef CPU 
+ifndef CPU
 $(error CPU is not set)
 endif
 
@@ -35,8 +35,8 @@ LD := ld.lld
 AR := llvm-ar
 
 ARCH_CFLAGS := \
-	-target $(TARGET) \
-	-Wno-unused-command-line-argument
+    -target $(TARGET) \
+    -Wno-unused-command-line-argument
 
 ARCH_LDFLAGS :=
 else
@@ -107,18 +107,29 @@ VM_LAYOUT_GEN := \
 	$(LIBTRUSTEDLO_PATH)/tools/gen_vm_layout.py
 
 VM_LAYOUT_HEADER := \
-	$(CFG_GEN_DIR)/tsldr_vm_layout.h
+    $(CFG_GEN_DIR)/tsldr_vm_layout.h
 
+VM_LAYOUT_LINKER_SCRIPT := \
+    $(CFG_GEN_DIR)/tsldr_vm_layout.ld
+
+export CFG_GEN_DIR
+export VM_LAYOUT_HEADER
+export VM_LAYOUT_LINKER_SCRIPT
 
 $(VM_LAYOUT_HEADER): $(VM_LAYOUT_CONFIG) $(VM_LAYOUT_GEN)
 	@mkdir -p $(dir $@)
 	python3 -B $(VM_LAYOUT_GEN) \
-		--config $(VM_LAYOUT_CONFIG) \
-		--output $@
+	    --config $(VM_LAYOUT_CONFIG) \
+	    --header-output $@
+
+$(VM_LAYOUT_LINKER_SCRIPT): $(VM_LAYOUT_CONFIG) $(VM_LAYOUT_GEN)
+	@mkdir -p $(dir $@)
+	python3 -B $(VM_LAYOUT_GEN) \
+	    --config $(VM_LAYOUT_CONFIG) \
+	    --linker-output $@
 
 .PHONY: header
-
-header: $(VM_LAYOUT_HEADER)
+header: $(VM_LAYOUT_HEADER) $(VM_LAYOUT_LINKER_SCRIPT)
 
 include $(LIBTRUSTEDLO_PATH)/trampoline/tp.mk
 
@@ -132,8 +143,8 @@ $(LIB_BUILD_DIR):
 	@mkdir -p $@
 
 $(LIB_BUILD_DIR)/%.o: \
-	$(LIBTRUSTEDLO_PATH)/%.c \
-	$(VM_LAYOUT_HEADER)
+    $(LIBTRUSTEDLO_PATH)/%.c \
+    $(VM_LAYOUT_HEADER)
 	@mkdir -p $(dir $@)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@
 

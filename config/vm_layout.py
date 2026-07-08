@@ -32,6 +32,11 @@ VM_REGIONS = [
         "size": PAGE_SIZE,
     },
     {
+        "name": "TRAMPOLINE_PROGRAM",
+        "base": 0x01800000,
+        "size": 0x00800000,
+    },
+    {
         "name": "CONTAINER_STACK",
         "base": 0x0000000FFFBFF000,
         "size": PAGE_SIZE,

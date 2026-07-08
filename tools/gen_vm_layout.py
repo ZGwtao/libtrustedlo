@@ -86,6 +86,15 @@ def validate_regions(
                 f"VM_REGIONS[{index}] is missing: {missing}"
             )
 
+        unexpected_keys = region.keys() - required_keys
+
+        if unexpected_keys:
+            unexpected = ", ".join(sorted(unexpected_keys))
+            raise ValueError(
+                f"VM_REGIONS[{index}] has unexpected keys: "
+                f"{unexpected}"
+            )
+
         name = region["name"]
         base = region["base"]
         size = region["size"]
@@ -163,6 +172,24 @@ def validate_regions(
                 f"{current['name']} "
                 f"[0x{current_start:x}, 0x{current_end:x})"
             )
+
+
+def require_regions(
+    vm_regions: list[dict[str, Any]],
+    required_names: set[str],
+) -> None:
+    available_names = {
+        region["name"]
+        for region in vm_regions
+    }
+
+    missing_names = required_names - available_names
+
+    if missing_names:
+        missing = ", ".join(sorted(missing_names))
+        raise ValueError(
+            f"config is missing required VM regions: {missing}"
+        )
 
 
 def generate_header(
@@ -251,6 +278,39 @@ def generate_header(
     return "\n".join(lines)
 
 
+def generate_linker_script(
+    page_size: int,
+    vm_regions: list[dict[str, Any]],
+    config_path: Path,
+) -> str:
+    lines = [
+        "/*",
+        " * Auto-generated file. Do not edit manually.",
+        f" * Source configuration: {config_path.name}",
+        " */",
+        "",
+        f"TSLDR_VM_PAGE_SIZE = 0x{page_size:x};",
+        "",
+    ]
+
+    for region in vm_regions:
+        name = region["name"]
+        base = region["base"]
+        size = region["size"]
+        end = base + size
+
+        lines.extend(
+            [
+                f"TSLDR_VM_{name}_BASE = 0x{base:x};",
+                f"TSLDR_VM_{name}_SIZE = 0x{size:x};",
+                f"TSLDR_VM_{name}_END = 0x{end:x};",
+                "",
+            ]
+        )
+
+    return "\n".join(lines)
+
+
 def write_if_changed(output_path: Path, content: str) -> None:
     if output_path.exists():
         old_content = output_path.read_text(encoding="utf-8")
@@ -264,7 +324,9 @@ def write_if_changed(output_path: Path, content: str) -> None:
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate the libtrustedlo VM layout header."
+        description=(
+            "Generate libtrustedlo VM layout files."
+        )
     )
 
     parser.add_argument(
@@ -275,13 +337,28 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--header-output",
         "--output",
+        dest="header_output",
         type=Path,
-        required=True,
         help="path to the generated C header",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--linker-output",
+        type=Path,
+        help="path to the generated linker-script constants",
+    )
+
+    args = parser.parse_args()
+
+    if args.header_output is None and args.linker_output is None:
+        parser.error(
+            "at least one of --header-output or "
+            "--linker-output is required"
+        )
+
+    return args
 
 
 def main() -> None:
@@ -292,13 +369,37 @@ def main() -> None:
 
     validate_regions(page_size, vm_regions)
 
-    header = generate_header(
-        page_size=page_size,
-        vm_regions=vm_regions,
-        config_path=args.config,
+    require_regions(
+        vm_regions,
+        {
+            "LOADER_PROGRAM",
+            "TRAMPOLINE_PROGRAM",
+        },
     )
 
-    write_if_changed(args.output, header)
+    if args.header_output is not None:
+        header = generate_header(
+            page_size=page_size,
+            vm_regions=vm_regions,
+            config_path=args.config,
+        )
+
+        write_if_changed(
+            args.header_output,
+            header,
+        )
+
+    if args.linker_output is not None:
+        linker_script = generate_linker_script(
+            page_size=page_size,
+            vm_regions=vm_regions,
+            config_path=args.config,
+        )
+
+        write_if_changed(
+            args.linker_output,
+            linker_script,
+        )
 
 
 if __name__ == "__main__":

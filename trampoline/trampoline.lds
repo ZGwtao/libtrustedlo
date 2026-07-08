@@ -1,3 +1,5 @@
+INCLUDE tsldr_vm_layout.ld
+
 ENTRY(trampoline_entry)
 
 PHDRS
@@ -8,7 +10,8 @@ PHDRS
 
 SECTIONS
 {
-    . = 0x1800000;
+    . = TSLDR_VM_TRAMPOLINE_PROGRAM_BASE;
+    __trampoline_image_start = .;
 
     .text : ALIGN(16)
     {
@@ -33,6 +36,13 @@ SECTIONS
         *(COMMON)
         __bss_end = .;
     } :data
+
+    __trampoline_image_end = .;
+
+    ASSERT(
+        __trampoline_image_end <= TSLDR_VM_TRAMPOLINE_PROGRAM_END,
+        "trampoline image exceeds TRAMPOLINE_PROGRAM VM region"
+    )
 
     /DISCARD/ :
     {
