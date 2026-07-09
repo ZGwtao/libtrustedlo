@@ -76,6 +76,8 @@ TRAMPOLINE_STACK_BASE = (
 )
 TRAMPOLINE_STACK_SIZE = PAGE_SIZE
 
+MICROKIT_X86_STACK_BASE = 0x7fffffffe000
+MICROKIT_AARCH64_STACK_BASE = 0x0fffffff000
 
 VM_REGIONS = [
     {
@@ -137,5 +139,15 @@ VM_REGIONS = [
         "name": "TRAMPOLINE_STACK",
         "base": TRAMPOLINE_STACK_BASE,
         "size": TRAMPOLINE_STACK_SIZE,
+    },
+    {
+        "name": "MICROKIT_AARCH64_STACK",
+        "base": MICROKIT_AARCH64_STACK_BASE,
+        "size": PAGE_SIZE,
+    },
+    {
+        "name": "MICROKIT_X86_STACK",
+        "base": MICROKIT_X86_STACK_BASE,
+        "size": PAGE_SIZE,
     },
 ]

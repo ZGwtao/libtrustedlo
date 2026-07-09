@@ -268,24 +268,25 @@ void tsldr_main_self_loading(void)
         "Load trampoline elf to the targeting memory region\n"
     );
 
-#if defined(CONFIG_ARCH_X86_64)
-    uintptr_t tsldr_stack_bottom = (0x7fffffffe000);
-#elif defined(CONFIG_ARCH_AARCH64)
-    uintptr_t tsldr_stack_bottom = (0x0000000fffffff000);
-#else
-#error "Unsupported architecture"
-#endif
-
     trampoline_args_t *args =
         (trampoline_args_t *)
             tsldr_vm_layout.trampoline_args.base;
 
     *args = (trampoline_args_t) {
         .regions = {
+#if defined(CONFIG_ARCH_X86_64)
             [REGION_TSLDR_STACK] = {
-                tsldr_stack_bottom,
+                tsldr_vm_layout.microkit_x86_stack.base,
                 (uintptr_t)TSLDR_VM_PAGE_SIZE,
             },
+#elif defined(CONFIG_ARCH_AARCH64)
+            [REGION_TSLDR_STACK] = {
+                tsldr_vm_layout.microkit_aarch64_stack.base,
+                (uintptr_t)TSLDR_VM_PAGE_SIZE,
+            },
+#else
+#error "Unsupported architecture"
+#endif
             [REGION_TSLDR_METADATA] = {
                 tsldr_vm_layout.loader_metadata.base,
                 (uintptr_t)
