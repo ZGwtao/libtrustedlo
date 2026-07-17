@@ -271,26 +271,30 @@ void tsldr_acrtutil_revoke_mappings(void *data)
 }
 
 
-void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num)
+void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data)
 {
-    if (num > MAX_ACCESS_RIGHTS) {
+    const tsldr_acrtreq_header_t *header = (tsldr_acrtreq_header_t *)src_data;
+
+    if (header->total_num > MAX_ACCESS_RIGHTS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights: ");
         microkit_dbg_puts(" number of access rights given is too big '");
-        microkit_dbg_put32(num);
+        microkit_dbg_put32(header->total_num);
         microkit_dbg_puts("'\n");
         return;
     }
 
     tsldr_context_t *loader = (tsldr_context_t *)context_data;
-    tsldr_acrt_entry_t *input_base = (tsldr_acrt_entry_t *)(src_data);
+    const tsldr_acrt_entry_t *input_base =
+                (const tsldr_acrt_entry_t *)((char *)(header) + header->serialised_offset);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "input base: %x\n", input_base);
 
     tsldr_acrt_table_t *rights_table = NULL;
     tsldr_acrt_entry_t *rights_entries = NULL;
     
     rights_table = &loader->acrt_required_table;
     tsldr_miscutil_memset((void *)rights_table, 0, sizeof(tsldr_acrt_table_t));
-    rights_table->num_entries = num;
+    rights_table->num_entries = header->total_num;
 
     for (int i = 0; i < rights_table->num_entries; ++i) {
         rights_entries = &rights_table->entries[i];
@@ -304,13 +308,23 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 }
 
 
-void tsldr_acrtutil_encode_rights(void *base,
-    seL4_Word notifications[], size_t n_notifications, seL4_Word ppcs[], size_t n_ppcs,
-    seL4_Word irqs[], size_t n_irqs, seL4_Word ioports[], size_t n_ioports,
-    seL4_Word mappings[], size_t n_mappings
+void
+tsldr_acrtutil_encode_rights(
+    void *base,
+    const seL4_Word notifications[],
+    const size_t n_notifications,
+    const seL4_Word ppcs[],
+    const size_t n_ppcs,
+    const seL4_Word irqs[],
+    const size_t n_irqs,
+    const seL4_Word ioports[],
+    const size_t n_ioports,
+    const seL4_Word mappings[],
+    const size_t n_mappings
 )
 {
     tsldr_acrt_entry_t *p = (tsldr_acrt_entry_t *)base;
+
     for (size_t i = 0; i < n_notifications; ++i) {
         p->type = (uint8_t)TYPE_NOTIFICATION;
         p->data = notifications[i];
@@ -400,19 +414,27 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
 }
 
 
-seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
+void tsldr_acrtutil_check_access_rights_table(void *base)
 {
+    const tsldr_acrtreq_header_t *header = NULL;
     if (!base) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
         microkit_dbg_puts(" invalid pointer given\n");
         microkit_internal_crash(-1);
     }
-
-    size_t *p = (size_t *)base;
-    seL4_Word acrt_num = *p;
-
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of access rights checked '%d'\n", acrt_num);
-    return acrt_num;
+    header = (tsldr_acrtreq_header_t *)(base);
+    TSLDR_DBG_PRINT(
+        LIB_NAME_MACRO
+        "number of access rights checked '%d'\n",
+        header->total_num
+    );
+    if (header->serialised_offset < sizeof(tsldr_acrtreq_header_t)) {
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
+        microkit_dbg_puts(" invalid acrtreq entry list offset given\n");
+        microkit_internal_crash(-1);
+    }
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_acrtutil_check_access_rights_table: succeeded\n");
 }
 

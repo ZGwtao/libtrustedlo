@@ -27,14 +27,22 @@ void tsldr_acrtutil_revoke_mappings(void *data);
 
 
 void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinfo);
-void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num);
+void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data);
 
 
-void tsldr_acrtutil_encode_rights(void *base,
-    seL4_Word notifications[], size_t n_notifications, seL4_Word ppcs[], size_t n_ppcs,
-    seL4_Word irqs[], size_t n_irqs, seL4_Word ioports[], size_t n_ioports,
-    seL4_Word mappings[], size_t n_mappings
+void
+tsldr_acrtutil_encode_rights(
+    void *base,
+    const seL4_Word notifications[],
+    const size_t n_notifications,
+    const seL4_Word ppcs[],
+    const size_t n_ppcs,
+    const seL4_Word irqs[],
+    const size_t n_irqs,
+    const seL4_Word ioports[],
+    const size_t n_ioports,
+    const seL4_Word mappings[],
+    const size_t n_mappings
 );
 
-
-seL4_Word tsldr_acrtutil_check_access_rights_table(void *base);
+void tsldr_acrtutil_check_access_rights_table(void *base);

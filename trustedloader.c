@@ -11,10 +11,9 @@ void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
         microkit_internal_crash(-1);
     }
 
-    seL4_Word num = tsldr_acrtutil_check_access_rights_table(data);
-    seL4_Word *p = (seL4_Word *)data;
+    tsldr_acrtutil_check_access_rights_table(data);
 
-    tsldr_acrtutil_populate_all_rights(loader, ++p, num);
+    tsldr_acrtutil_populate_all_rights(loader, data);
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 }
@@ -395,7 +394,8 @@ void tsldr_main_monitor_privilege_pd(seL4_Word cid)
 
 void tsldr_main_monitor_encode_required_rights(
     void *base,
-    tsldr_acrtreq_t *req_acrt)
+    const tsldr_acrtreq_t *req_acrt
+)
 {
     tsldr_acrtutil_encode_rights(
         base,

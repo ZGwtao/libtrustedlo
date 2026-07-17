@@ -64,6 +64,13 @@ typedef struct {
 } tsldr_acrtreq_t;
 
 
+typedef struct {
+    uint64_t total_num;
+    uint64_t serialised_offset;
+} tsldr_acrtreq_header_t;
+
+
+
 /* each template PD has one */
 typedef struct {
     uint8_t avails;
@@ -185,5 +192,5 @@ void tsldr_main_self_loading(void);
 void tsldr_main_monitor_privilege_pd(seL4_Word cid);
 
 
-void tsldr_main_monitor_encode_required_rights(void *base, tsldr_acrtreq_t *req);
+void tsldr_main_monitor_encode_required_rights(void *base, const tsldr_acrtreq_t *req);
 
