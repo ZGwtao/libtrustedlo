@@ -316,6 +316,7 @@ void tsldr_main_self_loading(void)
         .client_elf = (uintptr_t)ehdr->e_entry,
         .ipc_buffer = tsldr_vm_layout.ipc_buffer.base,
         .monitor_channel = 74 + 15,
+        .monitor_pcmcall_id = 20,
     };
 
     tsldr_mdinfo_t *mdi = (tsldr_mdinfo_t *)mdinfo;

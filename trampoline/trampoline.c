@@ -46,31 +46,27 @@ static void abort_trampoline(void)
     __builtin_unreachable();
 }
 
-__attribute__((noreturn, used))
-void trampoline_entry(const trampoline_args_t *args)
+static inline void
+trampoline_backup_trustedlo_context(const trampoline_args_t *args)
 {
-    __sel4_ipc_buffer = (seL4_IPCBuffer *)args->ipc_buffer;
-
-    for (size_t i = REGION_TSLDR_STACK;
-         i <= REGION_CONTAINER_STACK;
-         ++i) {
-        tsldr_miscutil_memset(
-            (void *)args->regions[i].address,
-            0,
-            args->regions[i].size
-        );
-    }
-
-    // TODO: make this a hook than hardcode the value
-    seL4_SetMR(0, 20);
+    seL4_SetMR(0, args->monitor_pcmcall_id);
     seL4_MessageInfo_t info = seL4_Call(
         args->monitor_channel, seL4_MessageInfo_new(0, 0, 0, 1)
     );
     if (seL4_MessageInfo_get_label(info) != seL4_NoError) {
         abort_trampoline();
     }
+}
 
-    for (size_t i = REGION_TSLDR_CONTEXT;
+__attribute__((noreturn, used))
+void trampoline_entry(const trampoline_args_t *args)
+{
+    __sel4_ipc_buffer = (seL4_IPCBuffer *)args->ipc_buffer;
+
+    /* Before refreshing, call monitor to save valuable things. */
+    trampoline_backup_trustedlo_context(args);
+
+    for (size_t i = REGION_TSLDR_STACK;
          i <= REGION_TSLDR_PROGRAM;
          ++i) {
         tsldr_miscutil_memset(

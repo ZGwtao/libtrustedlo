@@ -30,6 +30,7 @@ typedef struct {
     uintptr_t client_elf;
     uintptr_t ipc_buffer;
     seL4_CPtr monitor_channel;
+    seL4_Word monitor_pcmcall_id;
 } trampoline_args_t;
 
 typedef struct {
