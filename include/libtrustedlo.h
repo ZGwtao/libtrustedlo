@@ -123,6 +123,22 @@ enum {
 };
 
 
+#define TRY_OR_RETURN_VOID(expr)            \
+    do {                                    \
+        seL4_Error _err = (expr);           \
+        if (_err != seL4_NoError) {         \
+            return;                         \
+        }                                   \
+    } while (0)
+
+#define TRY_OR_RETURN_ERROR(expr)           \
+    do {                                    \
+        seL4_Error _err = (expr);           \
+        if (_err != seL4_NoError) {         \
+            return _err;                    \
+        }                                   \
+    } while (0)
+
 #define TSLDR_ASSERT(cond)                     \
     do {                                       \
         if (!(cond)) {                         \
@@ -131,66 +147,8 @@ enum {
     } while (0)
 
 
-void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context, void *mdinfo);
-void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context, void *mdinfo);
-
-
-/**
- * @brief Populates access rights and verifies signature of the data.
- *
- * @param loader Pointer to where the tsldr_acrt_table_t structure to be populated and stored.
- * @param data Pointer to the signed message (signature || data).
- * @return true if the signature is valid, false otherwise.
- */
-void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data);
-
-/**
- * @brief Applies access rights to build allowed lists
- *
- * @param loader Pointer to the loader which contains recorded access rights table
- */
-void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *mdinfo);
-
+void microkit_trustedlo_selfload_entry(void);
 
 void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo);
-
-/**
- * @brief Initialise a trusted loader
- *
- * @param loader Pointer to the trusted loader to initialise
- * @param id The id of child PD (for a template PD)
- */
-void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id);
-
-
-void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo);
-
-
-void tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo);
-
-
-// FIXME: this function refresh the regions where the client elf should live
-void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack);
-
-
-void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader);
-
-
-__attribute__((noreturn))
-void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args);
-
-
-void tsldr_main_check_elf_integrity(uintptr_t elf, seL4_Word *err);
-
-
-void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base, void *mdinfo);
-
-
-void tsldr_main_self_loading(void);
-
-
-void tsldr_main_monitor_privilege_pd(seL4_Word cid);
-
-
 void tsldr_main_monitor_encode_required_rights(void *base, const tsldr_acrtreq_t *req);
-
+void tsldr_main_monitor_privilege_pd(seL4_Word cid);

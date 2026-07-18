@@ -73,7 +73,8 @@ LOADER_ELF := \
 	$(LIB_BUILD_DIR)/protocon.elf
 
 LIB_SOURCES := \
-	trustedloader.c \
+	trustedlo_cfuncs.c \
+	trustedlo_mfuncs.c \
 	caputils.c \
 	acrtutils.c \
 	miscutils.c \
