@@ -271,53 +271,6 @@ void tsldr_acrtutil_revoke_mappings(void *data)
 }
 
 
-// FIXME
-//   it seems that populating the rights into trustedlo_ctxt is unnecessary
-//   the alternative solution is to use the src_data when we need it
-//   and we do not have to check the damn requested_list again and again
-//
-void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data)
-{
-    trustedlo_ctxt_t *ctxt = context_data;
-    const tsldr_acrtreq_header_t *header = (tsldr_acrtreq_header_t *)src_data;
-    const xrt_entry_t *input_base = NULL;
-
-    if (header->total_num > MAX_XRT_NUM) {
-        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights: ");
-        microkit_dbg_puts(" number of access rights given is too big '");
-        microkit_dbg_put32(header->total_num);
-        microkit_dbg_puts("'\n");
-        return;
-    }    
-    input_base = (const xrt_entry_t *)(
-                        (char *)(header) +
-                                (header->serialised_offset)
-                    );
-
-    tsldr_miscutil_memset(ctxt->requested_list.req_xrt_type, 0, MAX_XRT_NUM * (sizeof(xrt_type_t)));
-    tsldr_miscutil_memset(ctxt->requested_list.req_xrt_data, 0, MAX_XRT_NUM * (sizeof(xrt_type_t)));
-
-    ctxt->requested_list.req_xrt_num = header->total_num;
-
-    for (uint64_t i = 0;
-         i < ctxt->requested_list.req_xrt_num;
-         ++i
-    ) {
-        ctxt->requested_list.req_xrt_data[i] = input_base->data;
-        ctxt->requested_list.req_xrt_type[i] = input_base->type;
-        TSLDR_DBG_PRINT(
-            LIB_NAME_MACRO
-            "populate xrt: '%d' with type: '%d', data: '%x'\n",
-            i,
-            input_base->type,
-            input_base->data
-        );
-        input_base += 1;
-    }
-}
-
-
 void
 tsldr_acrtutil_encode_rights(
     void *base,
@@ -364,38 +317,32 @@ tsldr_acrtutil_encode_rights(
 
 
 static inline seL4_Error
-trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_type_t type, seL4_Word data)
+trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *req_xrt)
 {
-    xrt_entry_t xentry = { 0 };
-    xrt_entry_t *entry = &xentry;
-
-    entry->type = type;
-    entry->data = data;
-
-    switch (type) {
+    switch (req_xrt->type) {
     case XRT_TYPE_NTFN:
-        TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_notification(entry->data, mdinfo));
-        trustedlo_ctxt_allow__ntfn(ctxt, entry);
+        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_notification(req_xrt->data, mdinfo));
+        trustedlo_ctxt_allow__ntfn(ctxt, req_xrt);
         break;
     case XRT_TYPE_PPC:
-        TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_ppc(entry->data, mdinfo));
-        trustedlo_ctxt_allow__ppcs(ctxt, entry);
+        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_ppc(req_xrt->data, mdinfo));
+        trustedlo_ctxt_allow__ppcs(ctxt, req_xrt);
         break;
     case XRT_TYPE_IRQ:
-        TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data, mdinfo));
-        trustedlo_ctxt_allow__irq(ctxt, entry);
+        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_irq(req_xrt->data, mdinfo));
+        trustedlo_ctxt_allow__irq(ctxt, req_xrt);
         break;
     case XRT_TYPE_IOPORT:
-        TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_ioport(entry->data, mdinfo));
-        trustedlo_ctxt_allow__ioport(ctxt, entry);
+        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_ioport(req_xrt->data, mdinfo));
+        trustedlo_ctxt_allow__ioport(ctxt, req_xrt);
         break;
     case XRT_TYPE_MEMORY:
         TSLDR_ASSERT(ctxt->allowed_mappings.mapping_count < MICROKIT_MAX_CHANNELS);
-        uintptr_t m = tsldr_acrtutil_check_mapping(entry->data, mdinfo);
+        uintptr_t m = tsldr_acrtutil_check_mapping(req_xrt->data, mdinfo);
         TSLDR_ASSERT(m);
         if (ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] == XRT_STATE_USED) {
             ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] = XRT_STATE_KEEP;
@@ -412,20 +359,33 @@ trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_type_t type,
 
 
 seL4_Error
-tsldr_acrtutil_add_rights_to_whitelist(void *context, void *mdinfo)
+tsldr_acrtutil_populate_all_rights(void *context, void *mdinfo, void *req)
 {
     trustedlo_ctxt_t *ctxt = context;
+    /* TODO: wrap up below */
+    {
+        ctxt->allowed_mappings.mapping_count = 0;
+    }
+
+    const tsldr_acrtreq_header_t *header = req;
+    xrt_entry_t *req_xrt_list = NULL;
+    uint64_t req_xrt_num;
+
+    req_xrt_num = header->total_num;
+    req_xrt_list = (xrt_entry_t *)(
+                        (char *)(header) +
+                                (header->serialised_offset)
+                    );
 
     for (uint64_t i = 0;
-         i < ctxt->requested_list.req_xrt_num;
+         i < req_xrt_num;
          i++
     ) {
         TRY_OR_RETURN_ERROR(
         trustedlo_acrt_workerfunc(
             ctxt,
             mdinfo,
-            ctxt->requested_list.req_xrt_type[i],
-            ctxt->requested_list.req_xrt_data[i]
+            &req_xrt_list[i]
         ));
     }
     return seL4_NoError;
@@ -447,6 +407,13 @@ void tsldr_acrtutil_check_access_rights_table(void *base)
         "number of access rights checked '%d'\n",
         header->total_num
     );
+    if (header->total_num > MAX_XRT_NUM) {
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
+        microkit_dbg_puts(" number of access rights given is too big '");
+        microkit_dbg_put32(header->total_num);
+        microkit_internal_crash(-1);
+    }    
     if (header->serialised_offset < sizeof(tsldr_acrtreq_header_t)) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");

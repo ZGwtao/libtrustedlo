@@ -91,11 +91,6 @@ typedef struct xrt_entry {
 
 typedef struct trustedlo_ctxt {
     size_t child_id;
-    struct {
-        uint64_t   req_xrt_num;
-        xrt_type_t req_xrt_type[MAX_XRT_NUM];
-        seL4_Word  req_xrt_data[MAX_XRT_NUM];
-    } requested_list;
 
     bool restore;
     bool init;
@@ -144,11 +139,11 @@ _Static_assert(sizeof(trustedlo_ctxt_t) <= 0x1000, "unexpected trustedlo_ctxt_t 
         trustedlo_ctxt_t *ctxt,                                       \
         const xrt_entry_t *entry)                                     \
     {                                                                 \
-        xrt_state_t next_state = XRT_STATE_ALLOWED;               \
+        xrt_state_t next_state = XRT_STATE_ALLOWED;                   \
                                                                       \
         if (trustedlo_ctxt_check__##name(                             \
-                ctxt, entry, XRT_STATE_USED)) {                   \
-            next_state = XRT_STATE_KEEP;                          \
+                ctxt, entry, XRT_STATE_USED)) {                       \
+            next_state = XRT_STATE_KEEP;                              \
         }                                                             \
                                                                       \
         trustedlo_ctxt_set__##name(ctxt, entry, next_state);          \

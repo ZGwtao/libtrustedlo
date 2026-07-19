@@ -24,17 +24,7 @@ microkit_trustedlo_parse_requst(void *data)
 static inline seL4_Error
 microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *data)
 {
-    if (!context || !mdinfo) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid context/mdinfo pointer given\n");
-        return -1;
-    }
-
-    tsldr_acrtutil_populate_all_rights(context, data);
-
-    context->allowed_mappings.mapping_count = 0;
-
-    TRY_OR_RETURN_ERROR(tsldr_acrtutil_add_rights_to_whitelist(context, mdinfo));
-
+    TRY_OR_RETURN_ERROR(tsldr_acrtutil_populate_all_rights(context, mdinfo, data));
     return seL4_NoError;
 }
 
@@ -176,11 +166,6 @@ microkit_trustedlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
 static inline seL4_Error
 microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *acrt_stat_base)
 {
-    /* populate the required access rights to the loader */
-    /* but not populate the rights immediately */
-    // it records the required access rights in "requested_list"
-    // while the state of last execution are recorded in "allowed_xxx"
-    // we populate the rights to access_rights here, and compared the information from last run with it
     TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(acrt_stat_base));
 
     /* (really) populate allowed access rights */

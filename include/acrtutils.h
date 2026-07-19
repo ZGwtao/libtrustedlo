@@ -24,10 +24,7 @@ void tsldr_acrtutil_revoke_ppcs(void *data, void *mdinfo);
 void tsldr_acrtutil_revoke_irqs(void *data, void *mdinfo);
 void tsldr_acrtutil_revoke_mappings(void *data);
 
-
-
-seL4_Error tsldr_acrtutil_add_rights_to_whitelist(void *ctxt, void *mdinfo);
-void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data);
+seL4_Error tsldr_acrtutil_populate_all_rights(void *ctxt, void *mdinfo, void *req);
 
 
 void
