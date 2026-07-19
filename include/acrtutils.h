@@ -7,7 +7,7 @@
 #define CONFIG_BATCHING_MAP (1)
 
 
-uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo);
+bool tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo, seL4_Word *cookie);
 bool tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo);
 bool tsldr_acrtutil_check_ppc(seL4_Word ppc, void *mdinfo);
 bool tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo);

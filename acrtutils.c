@@ -4,15 +4,16 @@
 #include <miscutils.h>
 #include <libtrustedlo.h>
 
-inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
+bool tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo, seL4_Word *cookie)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     for (int i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
         if (md->mappings[i].vaddr == vaddr) {
-            return (uintptr_t)&md->mappings[i];
+            *cookie = (seL4_Word)(&md->mappings[i]);
+            return true;
         }
     }
-    return 0x0;
+    return false;
 }
 
 bool tsldr_acrtutil_check_notification(seL4_Word ntfn, void *mdinfo)
@@ -308,37 +309,37 @@ static inline seL4_Error
 trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *xrt_entry)
 {
     switch (xrt_entry->type) {
-    case XRT_TYPE_NTFN:
+    case XRT_TYPE_NTFN: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
         TSLDR_ASSERT(tsldr_acrtutil_check_notification(xrt_entry->data, mdinfo));
         trustedlo_ctxt_allow__ntfn(ctxt, xrt_entry);
         break;
-    case XRT_TYPE_PPC:
+    }
+    case XRT_TYPE_PPC: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
         TSLDR_ASSERT(tsldr_acrtutil_check_ppc(xrt_entry->data, mdinfo));
         trustedlo_ctxt_allow__ppcs(ctxt, xrt_entry);
         break;
-    case XRT_TYPE_IRQ:
+    }
+    case XRT_TYPE_IRQ: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
         TSLDR_ASSERT(tsldr_acrtutil_check_irq(xrt_entry->data, mdinfo));
         trustedlo_ctxt_allow__irq(ctxt, xrt_entry);
         break;
-    case XRT_TYPE_IOPORT:
+    }
+    case XRT_TYPE_IOPORT: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
         TSLDR_ASSERT(tsldr_acrtutil_check_ioport(xrt_entry->data, mdinfo));
         trustedlo_ctxt_allow__ioport(ctxt, xrt_entry);
         break;
-    case XRT_TYPE_MEMORY:
+    }
+    case XRT_TYPE_MEMORY: {
+        seL4_Word mapping_cookie = 0;
         TSLDR_ASSERT(ctxt->allowed_mappings.mapping_count < MICROKIT_MAX_CHANNELS);
-        uintptr_t m = tsldr_acrtutil_check_mapping(xrt_entry->data, mdinfo);
-        TSLDR_ASSERT(m);
-        if (ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] == XRT_STATE_USED) {
-            ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] = XRT_STATE_KEEP;
-        } else {
-            ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] = XRT_STATE_ALLOWED;
-        }
-        ctxt->allowed_mappings.mapping_data[ctxt->allowed_mappings.mapping_count++] = (seL4_Word)m;
+        TSLDR_ASSERT(tsldr_acrtutil_check_mapping(xrt_entry->data, mdinfo, &mapping_cookie));
+        trustedlo_ctxt_allow__mapping(ctxt, mapping_cookie);
         break;
+    }
     default:
         return -1;
     }

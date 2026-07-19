@@ -153,6 +153,21 @@ CONTEXT_ACCESSOR_LIST(DEFINE_CONTEXT_ACCESSORS)
 
 #undef DEFINE_CONTEXT_ACCESSORS
 
+static inline void
+trustedlo_ctxt_allow__mapping(
+    trustedlo_ctxt_t *ctxt,
+    seL4_Word mapping_cookie)
+{
+    uint64_t index = ctxt->allowed_mappings.mapping_count;
+    xrt_state_t next_state = XRT_STATE_ALLOWED;
+    if (ctxt->allowed_mappings.mapping_state[index] == XRT_STATE_USED) {
+        next_state = XRT_STATE_KEEP;
+    }
+    ctxt->allowed_mappings.mapping_state[index] = next_state;
+    ctxt->allowed_mappings.mapping_data[index] = mapping_cookie;
+    ctxt->allowed_mappings.mapping_count = index + 1;
+}
+
 
 typedef void (*entry_fn_t)(const trampoline_args_t *);
 
