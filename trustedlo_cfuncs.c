@@ -5,67 +5,78 @@
 #include <tsldr_vm_layout.h>
 
 
-static inline void
-tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
+static inline seL4_Error
+microkit_trustedlo_parse_requst(void *data)
 {
-    if (!loader || !data) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid loader pointer given\n");
-        microkit_internal_crash(-1);
+    if (!data) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid request given\n");
+        return -1;
     }
 
     tsldr_acrtutil_check_access_rights_table(data);
 
-    tsldr_acrtutil_populate_all_rights(loader, data);
-
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
+
+    return seL4_NoError;
 }
 
 
-static inline void
-tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *mdinfo)
+static inline seL4_Error
+microkit_trustedlo_populate_req2ctxt(tsldr_context_t *context, void *mdinfo, void *data)
 {
-    if (!loader) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid loader pointer given\n");
-        microkit_internal_crash(-1);
+    if (!context || !mdinfo) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid context/mdinfo pointer given\n");
+        return -1;
     }
-    loader->mp_cnt = 0;
-    tsldr_acrt_table_t *rights = &loader->acrt_required_table;
-    for (int i = 0; i < rights->num_entries; i++)
-        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]), mdinfo);
 
+    tsldr_acrtutil_populate_all_rights(context, data);
+
+    context->mp_cnt = 0;
+
+    tsldr_acrt_table_t *rights = &context->acrt_required_table;
+    uint64_t entry_num = rights->num_entries;
+
+    for (uint64_t i = 0; i < entry_num; i++) {
+        tsldr_acrtutil_add_rights_to_whitelist(
+            context,
+            &rights->entries[i],
+            mdinfo
+        );
+    }
+    return seL4_NoError;
 }
 
 
 static inline void
-tsldr_main_remove_caps(tsldr_context_t *loader, void *mdinfo)
+tsldr_main_remove_caps(tsldr_context_t *context, void *mdinfo)
 {
-    if (!loader) {
+    if (!context) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts("tsldr_main_remove_caps: ");
-        microkit_dbg_puts(" invalid loader pointer given\n");
+        microkit_dbg_puts(" invalid context pointer given\n");
         microkit_internal_crash(-1);
     }
     /* set the flag to restore cap during restart */
-    if (loader->restore == false) {
+    if (context->restore == false) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_remove_caps: need to restore access rights in next round\n");
-        loader->restore = true;
+        context->restore = true;
         return;
     }
     /* clean up all ACCESS_RIGHTS_USED caps */
-    tsldr_acrtutil_revoke_notifications(loader, mdinfo);
-    tsldr_acrtutil_revoke_ppcs(loader, mdinfo);
-    tsldr_acrtutil_revoke_irqs(loader, mdinfo);
-    tsldr_acrtutil_revoke_mappings(loader);
+    tsldr_acrtutil_revoke_notifications(context, mdinfo);
+    tsldr_acrtutil_revoke_ppcs(context, mdinfo);
+    tsldr_acrtutil_revoke_irqs(context, mdinfo);
+    tsldr_acrtutil_revoke_mappings(context);
     /* once finished, all USED are UNSET */
 }
 
 static inline void
-tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
+tsldr_main_restore_caps(tsldr_context_t *context, void *mdinfo)
 {
-    if (!loader) {
+    if (!context) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts("tsldr_main_restore_caps: ");
-        microkit_dbg_puts(" invalid loader pointer given\n");
+        microkit_dbg_puts(" invalid context pointer given\n");
         microkit_internal_crash(-1);
     }
 
@@ -73,15 +84,15 @@ tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
     /* for ACCESS_RIGHTS_ALLOWED, create them from backup CNode */
     /* for ACCESS_RIGHTS_UNSET, do nothing */
     /* and there should not be any other states (all USED are UNSET from remove_caps) */
-    tsldr_acrtutil_restore_notifications(loader, mdinfo);
-    tsldr_acrtutil_restore_ppcs(loader, mdinfo);
-    tsldr_acrtutil_restore_irqs(loader, mdinfo);
-    tsldr_acrtutil_restore_mappings(loader);
+    tsldr_acrtutil_restore_notifications(context, mdinfo);
+    tsldr_acrtutil_restore_ppcs(context, mdinfo);
+    tsldr_acrtutil_restore_irqs(context, mdinfo);
+    tsldr_acrtutil_restore_mappings(context);
 }
 
 
 static inline seL4_Error
-microkit_trustedlo_context_activate(void *mdinfo, tsldr_context_t *loader)
+microkit_trustedlo_context_activate(void *mdinfo, tsldr_context_t *context)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     if (!md->init) {
@@ -89,17 +100,17 @@ microkit_trustedlo_context_activate(void *mdinfo, tsldr_context_t *loader)
         return -1;
     }
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is ready...\n");
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loader init prologue\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted context init prologue\n");
 
     /* do some id activation here before actually parsing access rights... */
-    if (loader == NULL) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Try to init null loader\n");
+    if (context == NULL) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Try to init null context\n");
         return -1;
     }
-    if (loader->init != true) {
-        loader->child_id = md->child_id;
-        loader->init = true;
-        loader->restore = false;
+    if (context->init != true) {
+        context->child_id = md->child_id;
+        context->init = true;
+        context->restore = false;
     }
     return seL4_NoError;
 }
@@ -178,7 +189,7 @@ microkit_trustedlo_context_refresh(void *mdinfo, tsldr_context_t *context, void 
     // it records the required access rights in "tsldr_acrt_table_t access_rights"
     // while the state of last execution are recorded in "allowed_xxx"
     // we populate the rights to access_rights here, and compared the information from last run with it
-    tsldr_main_declare_required_rights(context, acrt_stat_base);
+    TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(acrt_stat_base));
 
     /* (really) populate allowed access rights */
     // we use this function to:
@@ -186,7 +197,7 @@ microkit_trustedlo_context_refresh(void *mdinfo, tsldr_context_t *context, void 
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    tsldr_main_pin_required_rights_before_pola(context, mdinfo);
+    TRY_OR_RETURN_ERROR(microkit_trustedlo_populate_req2ctxt(context, mdinfo, acrt_stat_base));
 
     TRY_OR_RETURN_ERROR(microkit_trustedlo_enforce_pola(context, mdinfo));
 
