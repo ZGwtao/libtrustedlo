@@ -75,8 +75,8 @@ LOADER_ELF := \
 LIB_SOURCES := \
 	trustedlo_cfuncs.c \
 	trustedlo_mfuncs.c \
-	caputils.c \
-	acrtutils.c \
+	cap.c \
+	xrt.c \
 	miscutils.c \
 	memory.c
 

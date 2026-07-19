@@ -8,7 +8,8 @@
 #include <trampoline.h>
 
 
-// Structure for memory mapping
+#define MAX_DYN_PD_PER_MONITOR (16)
+
 typedef struct {
     seL4_Word vaddr;
     seL4_Word page;
@@ -16,22 +17,34 @@ typedef struct {
     seL4_Word page_size;
     seL4_Word rights;
     seL4_Word attrs;
-} tsldr_mapping_t;
-
+} microkit_trustedlo_mapping_t;
+typedef microkit_trustedlo_mapping_t txlo_map_t;
 
 typedef struct {
     size_t      child_id;
+
     seL4_Word   bitmap_opt_notifications;
     seL4_Word   bitmap_opt_ppcs;
     seL4_Word   bitmap_opt_irqs;
     seL4_Word   bitmap_opt_ioports;
+
     seL4_Word   microkit_notifications;
     seL4_Word   microkit_pps;
     seL4_Word   microkit_irqs;
     seL4_Word   microkit_ioports;
-    tsldr_mapping_t mappings[MICROKIT_MAX_CHANNELS];
-    bool        init;
-} tsldr_mdinfo_t;
+
+    txlo_map_t mappings[MICROKIT_MAX_CHANNELS];
+
+    bool init;
+
+} microkit_trustedlo_info_t;
+typedef microkit_trustedlo_info_t txlo_info_t;
+
+typedef struct {
+    uint8_t avails;
+    txlo_info_t infodb[MAX_DYN_PD_PER_MONITOR];
+} microkit_trustedlo_monitor_t;
+typedef microkit_trustedlo_monitor_t txlo_monitor_t;
 
 
 typedef struct {
@@ -52,15 +65,6 @@ typedef struct {
     uint64_t total_num;
     uint64_t serialised_offset;
 } trustedlo_xrtreq_header_t;
-
-
-
-/* each template PD has one */
-typedef struct {
-    uint8_t avails;
-    /* maximum is 16 per monitor */
-    tsldr_mdinfo_t infodb[16];
-} tsldr_mdinfodb_t;
 
 
 typedef uint8_t xrt_state_t;
@@ -197,8 +201,8 @@ typedef void (*entry_fn_t)(const trampoline_args_t *);
     } while (0)
 
 
-void microkit_trustedlo_selfload_entry(void);
+void mktxlo_self_load_entry(void);
 
-void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo);
-void tsldr_main_monitor_encode_required_rights(void *base, const trustedlo_xrtreq_t *req);
-void tsldr_main_monitor_privilege_pd(seL4_Word cid);
+void mktxlo_prepare_txlo_info(txlo_monitor_t *db, size_t id, void *mdinfo);
+void mktxlo_prepare_xrt_req_list(void *base, const trustedlo_xrtreq_t *req);
+void mktxlo_privilege_template_pd(seL4_Word cid);

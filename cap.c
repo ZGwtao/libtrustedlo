@@ -1,13 +1,13 @@
 
-#include <caputils.h>
+#include <txlocap.h>
 #include <miscutils.h>
 
-void tsldr_caputil_delete_cap(seL4_Word cap_idx)
+void trustedlo_cap_util_delete_cap(seL4_Word cap_idx)
 {
     seL4_Word err = seL4_CNode_Delete(CNODE_SELF_CAP, cap_idx, PD_CAP_BITS);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_delete_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_delete_cap: ");
         microkit_dbg_puts(" failed to delete cap_idx from working cnode '");
         microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -16,12 +16,12 @@ void tsldr_caputil_delete_cap(seL4_Word cap_idx)
     }
 }
 
-void tsldr_caputil_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
+void trustedlo_cap_util_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
 {
     seL4_Word err = seL4_CNode_Delete(cnode_idx, cap_idx, PD_CAP_BITS);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_delete_cap_from_cnode: ");
+        microkit_dbg_puts(" trustedlo_cap_util_delete_cap_from_cnode: ");
         microkit_dbg_puts(" failed to delete cap_idx '");
         microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("' from cnode: '");
@@ -32,7 +32,7 @@ void tsldr_caputil_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
     }
 }
 
-void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
+void trustedlo_cap_util_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
 {
     seL4_Word err = seL4_CNode_Move(
         CNODE_SELF_CAP, dest_idx, PD_CAP_BITS,
@@ -40,7 +40,7 @@ void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_load_cap_from_backup_cnode: ");
+        microkit_dbg_puts(" trustedlo_cap_util_load_cap_from_backup_cnode: ");
         microkit_dbg_puts(" failed to load cap_idx from backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -49,7 +49,7 @@ void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
     }
 }
 
-void tsldr_caputil_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
+void trustedlo_cap_util_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
 {
     seL4_Word err = seL4_CNode_Move(
         CNODE_BACKUP_CAP, dest_idx, PD_CAP_BITS,
@@ -57,7 +57,7 @@ void tsldr_caputil_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_i
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_store_cap_to_backup_cnode: ");
+        microkit_dbg_puts(" trustedlo_cap_util_store_cap_to_backup_cnode: ");
         microkit_dbg_puts(" failed to store cap_idx to backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -66,7 +66,7 @@ void tsldr_caputil_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_i
     }
 }
 
-void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx, seL4_CapRights_t rights)
+void trustedlo_cap_util_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx, seL4_CapRights_t rights)
 {
     seL4_Word err = seL4_CNode_Copy(
         CNODE_SELF_CAP, dest_idx, PD_CAP_BITS,
@@ -75,7 +75,7 @@ void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_copy_cap_from_backup_cnode: ");
+        microkit_dbg_puts(" trustedlo_cap_util_copy_cap_from_backup_cnode: ");
         microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
         microkit_dbg_put32(dest_idx);
         microkit_dbg_puts("'\n");
@@ -84,13 +84,13 @@ void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
     }
 }
 
-void tsldr_caputil_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_dest, seL4_Word cap_src, seL4_Word cnode_src)
+void trustedlo_cap_util_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_dest, seL4_Word cap_src, seL4_Word cnode_src)
 {
     // FIXME: copy rights
     seL4_Word err = seL4_CNode_Copy(cnode_dest, cap_dest, PD_CAP_BITS, cnode_src, cap_src, PD_CAP_BITS, seL4_AllRights);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_copy_cap_between_cnode: ");
+        microkit_dbg_puts(" trustedlo_cap_util_copy_cap_between_cnode: ");
         //microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
@@ -100,43 +100,43 @@ void tsldr_caputil_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_de
 }
 
 
-void tsldr_caputil_pd_deprivilege(void)
+void trustedlo_cap_util_pd_deprivilege(void)
 {
-    tsldr_caputil_delete_cap(CNODE_BACKUP_CAP);
+    trustedlo_cap_util_delete_cap(CNODE_BACKUP_CAP);
 
-    tsldr_caputil_delete_cap(CNODE_SELF_CAP);
+    trustedlo_cap_util_delete_cap(CNODE_SELF_CAP);
 }
 
-void tsldr_caputil_pd_privilege(seL4_Word pd_idx)
+void trustedlo_cap_util_pd_privilege(seL4_Word pd_idx)
 {
-    tsldr_caputil_delete_cap_from_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx);
-    tsldr_caputil_delete_cap_from_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx);
-    tsldr_caputil_copy_cap_between_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_CSPACE_BASE + pd_idx, CNODE_SELF_CAP);
-    tsldr_caputil_copy_cap_between_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_BACKUP_BASE + pd_idx, CNODE_SELF_CAP);
-}
-
-
-
-void tsldr_caputil_pd_grant_vspace_access(void)
-{
-    // TODO: add log here
-    tsldr_caputil_load_cap_from_backup_cnode(VSPACE_SELF_CAP, VSPACE_BACKUP_CAP);
+    trustedlo_cap_util_delete_cap_from_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx);
+    trustedlo_cap_util_delete_cap_from_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx);
+    trustedlo_cap_util_copy_cap_between_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_CSPACE_BASE + pd_idx, CNODE_SELF_CAP);
+    trustedlo_cap_util_copy_cap_between_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_BACKUP_BASE + pd_idx, CNODE_SELF_CAP);
 }
 
 
-void tsldr_caputil_pd_revoke_vspace_access(void)
+
+void trustedlo_cap_util_pd_grant_vspace_access(void)
 {
     // TODO: add log here
-    tsldr_caputil_store_cap_to_backup_cnode(VSPACE_BACKUP_CAP, VSPACE_SELF_CAP);
+    trustedlo_cap_util_load_cap_from_backup_cnode(VSPACE_SELF_CAP, VSPACE_BACKUP_CAP);
 }
 
 
-void tsldr_caputil_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr, seL4_CapRights_t rights, seL4_Word attrs, seL4_Word page_num)
+void trustedlo_cap_util_pd_revoke_vspace_access(void)
+{
+    // TODO: add log here
+    trustedlo_cap_util_store_cap_to_backup_cnode(VSPACE_BACKUP_CAP, VSPACE_SELF_CAP);
+}
+
+
+void trustedlo_cap_util_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr, seL4_CapRights_t rights, seL4_Word attrs, seL4_Word page_num)
 {
 #if 0
     if (page_idx >= MICROKIT_MAX_CHANNELS) {
         // FIXME
-        microkit_dbg_puts(" tsldr_caputil_pd_grant_page_access:\n");
+        microkit_dbg_puts(" trustedlo_cap_util_pd_grant_page_access:\n");
         microkit_dbg_puts(" invalid page id given '");
         microkit_dbg_put32(page_idx);
         microkit_dbg_puts("'\n");
@@ -158,17 +158,17 @@ void tsldr_caputil_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr, seL
     seL4_Word target_idx = MAPPING_BASE_CAP;
     for (seL4_Word i = 0; i < page_num; ++i) {
         /* Load the page to map from the background CNode */
-        tsldr_caputil_load_cap_from_backup_cnode(target_idx, backup_idx + i);
+        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, backup_idx + i);
         /* Do the actual mappings here... */
-        tsldr_caputil_pd_page_map(target_idx, vaddr, rights, attrs, 0);
+        trustedlo_cap_util_pd_page_map(target_idx, vaddr, rights, attrs, 0);
         /* Move the mapped page back to the background CNode */
-        tsldr_caputil_store_cap_to_backup_cnode(backup_idx + i, target_idx);
+        trustedlo_cap_util_store_cap_to_backup_cnode(backup_idx + i, target_idx);
     }
 #endif
 }
 
 
-void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
+void trustedlo_cap_util_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
 {
     seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
 #if defined(CONFIG_ARM_ABS_MAP)
@@ -184,95 +184,95 @@ void tsldr_caputil_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
 #else
     seL4_Word target_idx = MAPPING_BASE_CAP;
     for (seL4_Word i = 0; i < page_num; ++i) {
-        tsldr_caputil_load_cap_from_backup_cnode(target_idx, backup_idx + i);
-        tsldr_caputil_pd_page_unmap(target_idx, 0);
-        tsldr_caputil_store_cap_to_backup_cnode(backup_idx + i, target_idx);
+        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, backup_idx + i);
+        trustedlo_cap_util_pd_page_unmap(target_idx, 0);
+        trustedlo_cap_util_store_cap_to_backup_cnode(backup_idx + i, target_idx);
     }
 #endif
 }
 
 
-void tsldr_caputil_revoke_irq_cap(seL4_Word irq_idx)
+void trustedlo_cap_util_revoke_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_revoke_irq_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_revoke_irq_cap: ");
         microkit_dbg_puts(" invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
         return;
     }
-    tsldr_caputil_delete_cap(IRQ_BASE_CAP + irq_idx);
+    trustedlo_cap_util_delete_cap(IRQ_BASE_CAP + irq_idx);
 }
 
-void tsldr_caputil_revoke_ppc_cap(seL4_Word ppc_idx)
+void trustedlo_cap_util_revoke_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_revoke_ppc_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_revoke_ppc_cap: ");
         microkit_dbg_puts(" invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
         return;
     }
-    tsldr_caputil_delete_cap(PPC_BASE_CAP + ppc_idx);
+    trustedlo_cap_util_delete_cap(PPC_BASE_CAP + ppc_idx);
 }
 
-void tsldr_caputil_revoke_notification_cap(seL4_Word ntfn_idx)
+void trustedlo_cap_util_revoke_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_revoke_ntfn_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_revoke_ntfn_cap: ");
         microkit_dbg_puts(" invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
         return;
     }
-    tsldr_caputil_delete_cap(NTFN_BASE_CAP + ntfn_idx);
+    trustedlo_cap_util_delete_cap(NTFN_BASE_CAP + ntfn_idx);
 }
 
-void tsldr_caputil_restore_irq_cap(seL4_Word irq_idx)
+void trustedlo_cap_util_restore_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_restore_irq_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_restore_irq_cap: ");
         microkit_dbg_puts(" invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
         return;
     }
     // FIXME: should we allow full access in each access right restoring operation?
-    tsldr_caputil_copy_cap_from_backup_cnode(IRQ_BASE_CAP + irq_idx, BACKUP_IRQ_BASE_CAP + irq_idx, seL4_AllRights);
+    trustedlo_cap_util_copy_cap_from_backup_cnode(IRQ_BASE_CAP + irq_idx, BACKUP_IRQ_BASE_CAP + irq_idx, seL4_AllRights);
 }
 
-void tsldr_caputil_restore_ppc_cap(seL4_Word ppc_idx)
+void trustedlo_cap_util_restore_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_restore_ppc_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_restore_ppc_cap: ");
         microkit_dbg_puts(" invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
         return;
     }
-    tsldr_caputil_copy_cap_from_backup_cnode(PPC_BASE_CAP + ppc_idx, BACKUP_PPC_BASE_CAP + ppc_idx, seL4_AllRights);
+    trustedlo_cap_util_copy_cap_from_backup_cnode(PPC_BASE_CAP + ppc_idx, BACKUP_PPC_BASE_CAP + ppc_idx, seL4_AllRights);
 }
 
-void tsldr_caputil_restore_notification_cap(seL4_Word ntfn_idx)
+void trustedlo_cap_util_restore_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_restore_notification_cap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_restore_notification_cap: ");
         microkit_dbg_puts(" invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
         return;
     }
-    tsldr_caputil_copy_cap_from_backup_cnode(NTFN_BASE_CAP + ntfn_idx, BACKUP_NTFN_BASE_CAP + ntfn_idx, seL4_AllRights);
+    trustedlo_cap_util_copy_cap_from_backup_cnode(NTFN_BASE_CAP + ntfn_idx, BACKUP_NTFN_BASE_CAP + ntfn_idx, seL4_AllRights);
 }
 
 
-void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs, uint8_t flags)
+void trustedlo_cap_util_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs, uint8_t flags)
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
@@ -282,7 +282,7 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
 #if defined(CONFIG_X86_ABS_MAP)
         err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
 #else
-#error "Unsupported syscall for tsldr_caputil_pd_page_map, try enable KernelX86AbsMap"
+#error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelX86AbsMap"
 #endif
     }
 #elif defined(CONFIG_ARCH_AARCH64)
@@ -292,16 +292,16 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
 #if defined(CONFIG_ARM_ABS_MAP)
         err = seL4_ARM_VSpace_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
 #else
-#error "Unsupported syscall for tsldr_caputil_pd_page_map, try enable KernelArmAbsMap"
+#error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelArmAbsMap"
 #endif
     }
 #else
-#error "Unsupported architecture for 'tsldr_caputil_pd_page_map'"
+#error "Unsupported architecture for 'trustedlo_cap_util_pd_page_map'"
 #endif
     if (err != seL4_NoError) {
         // FIXME
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_pd_page_map: ");
+        microkit_dbg_puts(" trustedlo_cap_util_pd_page_map: ");
         microkit_dbg_puts(" failed to map page with id '");
         microkit_dbg_put32(page_idx);
         //microkit_dbg_puts("', in vaddr: '");
@@ -315,7 +315,7 @@ void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRigh
     }
 }
 
-void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
+void trustedlo_cap_util_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 {
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
@@ -325,7 +325,7 @@ void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 #if defined(CONFIG_X86_ABS_MAP)
         err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, 1);
 #else
-#error "Unsupported syscall for tsldr_caputil_pd_page_unmap, try enable KernelX86AbsMap"
+#error "Unsupported syscall for trustedlo_cap_util_pd_page_unmap, try enable KernelX86AbsMap"
 #endif
     }
 #elif defined(CONFIG_ARCH_AARCH64)
@@ -335,15 +335,15 @@ void tsldr_caputil_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 #if defined(CONFIG_ARM_ABS_MAP)
         err = seL4_ARM_VSpace_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, 1);
 #else
-#error "Unsupported syscall for tsldr_caputil_pd_page_map, try enable KernelArmAbsMap"
+#error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelArmAbsMap"
 #endif
     }
 #else
-#error "Unsupported architecture for 'tsldr_caputil_pd_page_unmap'"
+#error "Unsupported architecture for 'trustedlo_cap_util_pd_page_unmap'"
 #endif
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" tsldr_caputil_pd_page_unmap: ");
+        microkit_dbg_puts(" trustedlo_cap_util_pd_page_unmap: ");
         microkit_dbg_puts(" failed to unmap page with id '");
         microkit_dbg_put32(page_idx);
         microkit_dbg_puts("'\n");

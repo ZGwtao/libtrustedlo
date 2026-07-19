@@ -1,19 +1,19 @@
 
-#include <acrtutils.h>
-#include <caputils.h>
+#include <txloxrt.h>
+#include <txlocap.h>
 #include <libtrustedlo.h>
 #include <tsldr_vm_layout.h>
 
 
 static inline seL4_Error
-microkit_trustedlo_parse_requst(void *xrt_req_header)
+mktxlo_parse_requst(void *xrt_req_header)
 {
     if (!xrt_req_header) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid xrt_req_header given\n");
         return -1;
     }
 
-    tsldr_acrtutil_check_access_rights_table(xrt_req_header);
+    trustedlo_xrt_util_check_access_rights_table(xrt_req_header);
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 
@@ -22,48 +22,48 @@ microkit_trustedlo_parse_requst(void *xrt_req_header)
 
 
 static inline seL4_Error
-microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *xrt_req_header)
+mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(tsldr_acrtutil_populate_all_rights(context, mdinfo, xrt_req_header));
+    TRY_OR_RETURN_ERROR(trustedlo_xrt_util_populate_all_rights(context, mdinfo, xrt_req_header));
     return seL4_NoError;
 }
 
 
 static inline void
-tsldr_main_remove_caps(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
     /* set the flag to restore cap during restart */
     if (context->restore == false) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_remove_caps: need to restore access rights in next round\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "mktxlo_revoke_caps: need to restore access rights in next round\n");
         context->restore = true;
         return;
     }
     /* clean up all XRT_STATE_USED caps */
-    tsldr_acrtutil_revoke_notifications(context, mdinfo);
-    tsldr_acrtutil_revoke_ppcs(context, mdinfo);
-    tsldr_acrtutil_revoke_irqs(context, mdinfo);
-    tsldr_acrtutil_revoke_mappings(context);
+    trustedlo_xrt_util_revoke_notifications(context, mdinfo);
+    trustedlo_xrt_util_revoke_ppcs(context, mdinfo);
+    trustedlo_xrt_util_revoke_irqs(context, mdinfo);
+    trustedlo_xrt_util_revoke_mappings(context);
     /* once finished, all USED are UNSET */
 }
 
 static inline void
-tsldr_main_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
     /* for XRT_STATE_KEEP, keep them as USED */
     /* for XRT_STATE_ALLOWED, create them from backup CNode */
     /* for XRT_STATE_UNSET, do nothing */
     /* and there should not be any other states (all USED are UNSET from remove_caps) */
-    tsldr_acrtutil_restore_notifications(context, mdinfo);
-    tsldr_acrtutil_restore_ppcs(context, mdinfo);
-    tsldr_acrtutil_restore_irqs(context, mdinfo);
-    tsldr_acrtutil_restore_mappings(context);
+    trustedlo_xrt_util_restore_notifications(context, mdinfo);
+    trustedlo_xrt_util_restore_ppcs(context, mdinfo);
+    trustedlo_xrt_util_restore_irqs(context, mdinfo);
+    trustedlo_xrt_util_restore_mappings(context);
 }
 
 
 static inline seL4_Error
-microkit_trustedlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
+mktxlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
 {
-    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)mdinfo;
     if (!md->init) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is not prepared...\n");
         return -1;
@@ -90,7 +90,7 @@ microkit_trustedlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
 
 #if defined(CONFIG_ARCH_X86_64)
 __attribute__((naked, noreturn)) /* don't let your compiler fuck around with the args */
-void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
+void mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
     __asm__ volatile(
         "mov %rdi, %rsp\n\t"
@@ -100,7 +100,7 @@ void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampol
 }
 #elif defined(CONFIG_ARCH_AARCH64)
 __attribute__((naked, noreturn))
-void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
+void mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
     __asm__ volatile(
         "mov sp, x0\n\t"
@@ -109,12 +109,12 @@ void tsldr_main_jump_with_stack(void *new_stack, entry_fn_t entry, const trampol
     );
 }
 #else
-#error "Unsupported architecture for 'tsldr_main_jump_with_stack'"
+#error "Unsupported architecture for 'mktxlo_jumpto'"
 #endif
 
 
 static inline seL4_Error
-microkit_trustedlo_payload_check_integrity(uintptr_t elf)
+mktxlo_payload_check_integrity(uintptr_t elf)
 {
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "Check ELF integrity\n");
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
@@ -129,7 +129,7 @@ microkit_trustedlo_payload_check_integrity(uintptr_t elf)
 
 
 static inline seL4_Error
-microkit_trustedlo_payload_load(void *base)
+mktxlo_payload_load(void *base)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)base;
     tsldr_miscutil_load_elf(
@@ -141,22 +141,22 @@ microkit_trustedlo_payload_load(void *base)
 
 
 static inline seL4_Error
-microkit_trustedlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
 {
-    tsldr_main_remove_caps(context, mdinfo);
+    mktxlo_revoke_caps(context, mdinfo);
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    tsldr_main_restore_caps(context, mdinfo);
+    mktxlo_restore_caps(context, mdinfo);
 
     return seL4_NoError;
 }
 
 
 static inline seL4_Error
-microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
+mktxlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(xrt_req_header));
+    TRY_OR_RETURN_ERROR(mktxlo_parse_requst(xrt_req_header));
 
     /* (really) populate allowed access rights */
     // we use this function to:
@@ -164,27 +164,27 @@ microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_populate_req2ctxt(context, mdinfo, xrt_req_header));
+    TRY_OR_RETURN_ERROR(mktxlo_populate_req2ctxt(context, mdinfo, xrt_req_header));
 
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_enforce_pola(context, mdinfo));
+    TRY_OR_RETURN_ERROR(mktxlo_enforce_pola(context, mdinfo));
 
-    tsldr_caputil_pd_deprivilege();
+    trustedlo_cap_util_pd_deprivilege();
 
     return seL4_NoError;
 }
 
 static inline seL4_Error
-microkit_trustedlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
+mktxlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_context_activate(mdinfo, context));
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_context_refresh(mdinfo, context, xrt_req_header));
+    TRY_OR_RETURN_ERROR(mktxlo_context_activate(mdinfo, context));
+    TRY_OR_RETURN_ERROR(mktxlo_context_refresh(mdinfo, context, xrt_req_header));
 
     return seL4_NoError;
 }
 
 
 static inline seL4_Error
-microkit_trustedlo_fill_tramp_args(void *frame_targs)
+mktxlo_fill_tramp_args(void *frame_targs)
 {
     trampoline_args_t *args = (trampoline_args_t *)(frame_targs);
 
@@ -243,7 +243,7 @@ microkit_trustedlo_fill_tramp_args(void *frame_targs)
 
 
 static inline seL4_Error
-microkit_trustedlo_fill_client_args(const tsldr_mdinfo_t *info, const trustedlo_ctxt_t *context, void *frame_cargs)
+mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context, void *frame_cargs)
 {
     seL4_Word bitmap_opt_notifications = 0;
     seL4_Word bitmap_opt_ppcs = 0;
@@ -276,12 +276,8 @@ microkit_trustedlo_fill_client_args(const tsldr_mdinfo_t *info, const trustedlo_
 }
 
 
-void microkit_trustedlo_selfload_entry(void)
+void mktxlo_self_load_entry(void)
 {
-    /*
-     * All VM layout values are generated by vm_layout.py and
-     * obtained directly from tsldr_vm_layout.
-     */
     void *mdinfo = (void *)tsldr_vm_layout.loader_metadata.base;
     void *xrt_req_header = (void *)tsldr_vm_layout.ossvc_metadata.base;
     trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
@@ -289,21 +285,21 @@ void microkit_trustedlo_selfload_entry(void)
     uintptr_t client_elf = tsldr_vm_layout.container_image.base;
     uintptr_t trampoline_elf = tsldr_vm_layout.trampoline_image.base;
 
-    TRY_OR_RETURN_VOID(microkit_trustedlo_payload_check_integrity(client_elf));
-    TRY_OR_RETURN_VOID(microkit_trustedlo_payload_check_integrity(trampoline_elf));
-    TRY_OR_RETURN_VOID(microkit_trustedlo_context_switch(mdinfo, context, xrt_req_header));
+    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(client_elf));
+    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampoline_elf));
+    TRY_OR_RETURN_VOID(mktxlo_context_switch(mdinfo, context, xrt_req_header));
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
-    TRY_OR_RETURN_VOID(microkit_trustedlo_payload_load(ehdr));
-    TRY_OR_RETURN_VOID(microkit_trustedlo_payload_load(trampoline_ehdr));
+    TRY_OR_RETURN_VOID(mktxlo_payload_load(ehdr));
+    TRY_OR_RETURN_VOID(mktxlo_payload_load(trampoline_ehdr));
 
     trampoline_args_t *args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
     client_args_t *frame_cargs = (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
 
-    TRY_OR_RETURN_VOID(microkit_trustedlo_fill_tramp_args(args));
-    TRY_OR_RETURN_VOID(microkit_trustedlo_fill_client_args(mdinfo, context, frame_cargs));
+    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(args));
+    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(mdinfo, context, frame_cargs));
 
     TSLDR_DBG_PRINT(
         LIB_NAME_MACRO
@@ -313,7 +309,7 @@ void microkit_trustedlo_selfload_entry(void)
         (void *)(uintptr_t)trampoline_ehdr->e_entry
     );
 
-    tsldr_main_jump_with_stack(
+    mktxlo_jumpto(
         (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
         (entry_fn_t)(uintptr_t)trampoline_ehdr->e_entry,
         args

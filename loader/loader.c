@@ -10,5 +10,5 @@ void loader_entry(void)
         (seL4_IPCBuffer *)tsldr_vm_layout.ipc_buffer.base;
 
     /* Trusted loading main function. */
-    microkit_trustedlo_selfload_entry();
+    mktxlo_self_load_entry();
 }
