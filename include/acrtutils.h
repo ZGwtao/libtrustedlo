@@ -26,7 +26,7 @@ void tsldr_acrtutil_revoke_mappings(void *data);
 
 
 
-void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinfo);
+seL4_Error tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinfo);
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data);
 
 

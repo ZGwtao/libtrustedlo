@@ -22,7 +22,7 @@ microkit_trustedlo_parse_requst(void *data)
 
 
 static inline seL4_Error
-microkit_trustedlo_populate_req2ctxt(tsldr_context_t *context, void *mdinfo, void *data)
+microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *data)
 {
     if (!context || !mdinfo) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid context/mdinfo pointer given\n");
@@ -31,24 +31,25 @@ microkit_trustedlo_populate_req2ctxt(tsldr_context_t *context, void *mdinfo, voi
 
     tsldr_acrtutil_populate_all_rights(context, data);
 
-    context->mp_cnt = 0;
+    context->allowed_mappings.mapping_count = 0;
 
     tsldr_acrt_table_t *rights = &context->acrt_required_table;
     uint64_t entry_num = rights->num_entries;
 
     for (uint64_t i = 0; i < entry_num; i++) {
+        TRY_OR_RETURN_ERROR(
         tsldr_acrtutil_add_rights_to_whitelist(
             context,
             &rights->entries[i],
             mdinfo
-        );
+        ));
     }
     return seL4_NoError;
 }
 
 
 static inline void
-tsldr_main_remove_caps(tsldr_context_t *context, void *mdinfo)
+tsldr_main_remove_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
     if (!context) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
@@ -71,7 +72,7 @@ tsldr_main_remove_caps(tsldr_context_t *context, void *mdinfo)
 }
 
 static inline void
-tsldr_main_restore_caps(tsldr_context_t *context, void *mdinfo)
+tsldr_main_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
     if (!context) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
@@ -92,7 +93,7 @@ tsldr_main_restore_caps(tsldr_context_t *context, void *mdinfo)
 
 
 static inline seL4_Error
-microkit_trustedlo_context_activate(void *mdinfo, tsldr_context_t *context)
+microkit_trustedlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     if (!md->init) {
@@ -169,7 +170,7 @@ microkit_trustedlo_payload_load(void *base)
 
 
 static inline seL4_Error
-microkit_trustedlo_enforce_pola(tsldr_context_t *context, void *mdinfo)
+microkit_trustedlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
 {
     tsldr_main_remove_caps(context, mdinfo);
 
@@ -182,7 +183,7 @@ microkit_trustedlo_enforce_pola(tsldr_context_t *context, void *mdinfo)
 
 
 static inline seL4_Error
-microkit_trustedlo_context_refresh(void *mdinfo, tsldr_context_t *context, void *acrt_stat_base)
+microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *acrt_stat_base)
 {
     /* populate the required access rights to the loader */
     /* but not populate the rights immediately */
@@ -207,7 +208,7 @@ microkit_trustedlo_context_refresh(void *mdinfo, tsldr_context_t *context, void 
 }
 
 static inline seL4_Error
-microkit_trustedlo_context_switch(void *mdinfo, tsldr_context_t *context, void *acrt_stat_base)
+microkit_trustedlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *acrt_stat_base)
 {
     TRY_OR_RETURN_ERROR(microkit_trustedlo_context_activate(mdinfo, context));
     TRY_OR_RETURN_ERROR(microkit_trustedlo_context_refresh(mdinfo, context, acrt_stat_base));
@@ -276,7 +277,7 @@ microkit_trustedlo_fill_tramp_args(void *frame_targs)
 
 
 static inline seL4_Error
-microkit_trustedlo_fill_client_args(const tsldr_mdinfo_t *info, const tsldr_context_t *context, void *frame_cargs)
+microkit_trustedlo_fill_client_args(const tsldr_mdinfo_t *info, const trustedlo_ctxt_t *context, void *frame_cargs)
 {
     seL4_Word bitmap_opt_notifications = 0;
     seL4_Word bitmap_opt_ppcs = 0;
@@ -317,7 +318,7 @@ void microkit_trustedlo_selfload_entry(void)
      */
     void *mdinfo = (void *)tsldr_vm_layout.loader_metadata.base;
     void *acrt_stat_base = (void *)tsldr_vm_layout.ossvc_metadata.base;
-    tsldr_context_t *context = (tsldr_context_t *) tsldr_vm_layout.loader_context.base;
+    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
 
     uintptr_t client_elf = tsldr_vm_layout.container_image.base;
     uintptr_t trampoline_elf = tsldr_vm_layout.trampoline_image.base;

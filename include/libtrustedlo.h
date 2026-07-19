@@ -87,11 +87,9 @@ enum {
     ACCESS_RIGHTS_KEEP = 3,
 };
 
-/* Trusted loader metadata / state */
-typedef struct {
 
+typedef struct trustedlo_ctxt {
     size_t child_id;
-
     tsldr_acrt_table_t acrt_required_table;
 
     bool restore;
@@ -101,15 +99,60 @@ typedef struct {
     access_rights_state_t allowed_ppcs[MICROKIT_MAX_CHANNELS];
     access_rights_state_t allowed_irqs[MICROKIT_MAX_CHANNELS];
     access_rights_state_t allowed_ioports[MICROKIT_MAX_CHANNELS];
-    access_rights_state_t allowed_mappings[MICROKIT_MAX_CHANNELS];
 
-    seL4_Word mapping_data[MICROKIT_MAX_CHANNELS];
+    struct {
+        uint64_t mapping_count;
+        seL4_Word mapping_data[MICROKIT_MAX_CHANNELS];
+        access_rights_state_t mapping_state[MICROKIT_MAX_CHANNELS];
+    } allowed_mappings;
 
-    int mp_cnt;
+} trustedlo_ctxt_t;
+_Static_assert(sizeof(trustedlo_ctxt_t) <= 0x1000, "unexpected trustedlo_ctxt_t size");
 
-} tsldr_context_t;
+#define CONTEXT_ACCESSOR_LIST(X)                  \
+    X(ntfn,   allowed_notifications)              \
+    X(ppcs,   allowed_ppcs)                       \
+    X(irq,    allowed_irqs)                       \
+    X(ioport, allowed_ioports)
 
-_Static_assert(sizeof(tsldr_context_t) <= 0x1000, "unexpected tsldr_context_t size");
+#define DEFINE_CONTEXT_ACCESSORS(name, field)                         \
+    static inline void                                                \
+    trustedlo_ctxt_set__##name(                                       \
+        trustedlo_ctxt_t *ctxt,                                       \
+        const tsldr_acrt_entry_t *entry,                              \
+        access_rights_state_t state)                                  \
+    {                                                                 \
+        ctxt->field[entry->data] = state;                             \
+    }                                                                 \
+                                                                      \
+    static inline bool                                                \
+    trustedlo_ctxt_check__##name(                                     \
+        const trustedlo_ctxt_t *ctxt,                                 \
+        const tsldr_acrt_entry_t *entry,                              \
+        access_rights_state_t state)                                  \
+    {                                                                 \
+        return ctxt->field[entry->data] == state;                     \
+    }                                                                 \
+                                                                      \
+    static inline void                                                \
+    trustedlo_ctxt_allow__##name(                                     \
+        trustedlo_ctxt_t *ctxt,                                       \
+        const tsldr_acrt_entry_t *entry)                              \
+    {                                                                 \
+        access_rights_state_t next_state = ACCESS_RIGHTS_ALLOWED;     \
+                                                                      \
+        if (trustedlo_ctxt_check__##name(                             \
+                ctxt, entry, ACCESS_RIGHTS_USED)) {                   \
+            next_state = ACCESS_RIGHTS_KEEP;                          \
+        }                                                             \
+                                                                      \
+        trustedlo_ctxt_set__##name(ctxt, entry, next_state);          \
+    }
+
+CONTEXT_ACCESSOR_LIST(DEFINE_CONTEXT_ACCESSORS)
+
+#undef DEFINE_CONTEXT_ACCESSORS
+
 
 typedef void (*entry_fn_t)(const trampoline_args_t *);
 
