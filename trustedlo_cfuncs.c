@@ -33,17 +33,8 @@ microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, vo
 
     context->allowed_mappings.mapping_count = 0;
 
-    tsldr_acrt_table_t *rights = &context->acrt_required_table;
-    uint64_t entry_num = rights->num_entries;
+    TRY_OR_RETURN_ERROR(tsldr_acrtutil_add_rights_to_whitelist(context, mdinfo));
 
-    for (uint64_t i = 0; i < entry_num; i++) {
-        TRY_OR_RETURN_ERROR(
-        tsldr_acrtutil_add_rights_to_whitelist(
-            context,
-            &rights->entries[i],
-            mdinfo
-        ));
-    }
     return seL4_NoError;
 }
 
@@ -63,7 +54,7 @@ tsldr_main_remove_caps(trustedlo_ctxt_t *context, void *mdinfo)
         context->restore = true;
         return;
     }
-    /* clean up all ACCESS_RIGHTS_USED caps */
+    /* clean up all XRT_STATE_USED caps */
     tsldr_acrtutil_revoke_notifications(context, mdinfo);
     tsldr_acrtutil_revoke_ppcs(context, mdinfo);
     tsldr_acrtutil_revoke_irqs(context, mdinfo);
@@ -81,9 +72,9 @@ tsldr_main_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
         microkit_internal_crash(-1);
     }
 
-    /* for ACCESS_RIGHTS_KEEP, keep them as USED */
-    /* for ACCESS_RIGHTS_ALLOWED, create them from backup CNode */
-    /* for ACCESS_RIGHTS_UNSET, do nothing */
+    /* for XRT_STATE_KEEP, keep them as USED */
+    /* for XRT_STATE_ALLOWED, create them from backup CNode */
+    /* for XRT_STATE_UNSET, do nothing */
     /* and there should not be any other states (all USED are UNSET from remove_caps) */
     tsldr_acrtutil_restore_notifications(context, mdinfo);
     tsldr_acrtutil_restore_ppcs(context, mdinfo);
@@ -187,7 +178,7 @@ microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void
 {
     /* populate the required access rights to the loader */
     /* but not populate the rights immediately */
-    // it records the required access rights in "tsldr_acrt_table_t access_rights"
+    // it records the required access rights in "requested_list"
     // while the state of last execution are recorded in "allowed_xxx"
     // we populate the rights to access_rights here, and compared the information from last run with it
     TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(acrt_stat_base));
@@ -283,10 +274,10 @@ microkit_trustedlo_fill_client_args(const tsldr_mdinfo_t *info, const trustedlo_
     seL4_Word bitmap_opt_ppcs = 0;
 
     for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
-        if (context->allowed_notifications[i] == ACCESS_RIGHTS_USED) {
+        if (context->allowed_notifications[i] == XRT_STATE_USED) {
             bitmap_opt_notifications |= (1 << i);
         }
-        if (context->allowed_ppcs[i] == ACCESS_RIGHTS_USED) {
+        if (context->allowed_ppcs[i] == XRT_STATE_USED) {
             bitmap_opt_ppcs |= (1 << i);
         }
     }

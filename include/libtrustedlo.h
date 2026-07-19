@@ -7,22 +7,6 @@
 #include <miscutils.h>
 #include <trampoline.h>
 
-/* number of access rights (for seL4 capabilities only) */
-#define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
-
-
-// Structure to hold each access right entry
-typedef struct {
-    uint8_t type;
-    uint8_t padding[7];
-    seL4_Word data; // For CHANNEL and IRQ: ID; For MEMORY: VADDR
-} tsldr_acrt_entry_t;
-
-// Structure to hold all access rights
-typedef struct {
-    uint32_t num_entries;
-    tsldr_acrt_entry_t entries[MAX_ACCESS_RIGHTS];
-} tsldr_acrt_table_t;
 
 // Structure for memory mapping
 typedef struct {
@@ -78,32 +62,53 @@ typedef struct {
     tsldr_mdinfo_t infodb[16];
 } tsldr_mdinfodb_t;
 
-typedef uint8_t access_rights_state_t;
 
+typedef uint8_t xrt_state_t;
 enum {
-    ACCESS_RIGHTS_UNSET = 0,
-    ACCESS_RIGHTS_ALLOWED = 1,
-    ACCESS_RIGHTS_USED = 2,
-    ACCESS_RIGHTS_KEEP = 3,
+    XRT_STATE_UNSET = 0,
+    XRT_STATE_ALLOWED = 1,
+    XRT_STATE_USED = 2,
+    XRT_STATE_KEEP = 3,
 };
 
+typedef uint8_t xrt_type_t;
+enum {
+    XRT_TYPE_NTFN     = 0x01,
+    XRT_TYPE_PPC      = 0x02,
+    XRT_TYPE_IRQ      = 0x03,
+    XRT_TYPE_IOPORT   = 0x04,
+    XRT_TYPE_MEMORY   = 0x05,
+};
+
+#define MAX_XRT_NUM (62 * 3)
+
+typedef struct xrt_entry {
+    xrt_type_t type;
+    uint8_t _padding[7];
+    /* channel id or base vaddr for memory */
+    seL4_Word data;
+} xrt_entry_t;
 
 typedef struct trustedlo_ctxt {
     size_t child_id;
-    tsldr_acrt_table_t acrt_required_table;
+    struct {
+        uint64_t   req_xrt_num;
+        xrt_type_t req_xrt_type[MAX_XRT_NUM];
+        seL4_Word  req_xrt_data[MAX_XRT_NUM];
+    } requested_list;
 
     bool restore;
     bool init;
 
-    access_rights_state_t allowed_notifications[MICROKIT_MAX_CHANNELS];
-    access_rights_state_t allowed_ppcs[MICROKIT_MAX_CHANNELS];
-    access_rights_state_t allowed_irqs[MICROKIT_MAX_CHANNELS];
-    access_rights_state_t allowed_ioports[MICROKIT_MAX_CHANNELS];
+    xrt_state_t allowed_notifications[MICROKIT_MAX_CHANNELS];
+    xrt_state_t allowed_ppcs[MICROKIT_MAX_CHANNELS];
+    xrt_state_t allowed_irqs[MICROKIT_MAX_CHANNELS];
+    xrt_state_t allowed_ioports[MICROKIT_MAX_CHANNELS];
 
     struct {
         uint64_t mapping_count;
         seL4_Word mapping_data[MICROKIT_MAX_CHANNELS];
-        access_rights_state_t mapping_state[MICROKIT_MAX_CHANNELS];
+        xrt_state_t mapping_state[MICROKIT_MAX_CHANNELS];
     } allowed_mappings;
 
 } trustedlo_ctxt_t;
@@ -119,8 +124,8 @@ _Static_assert(sizeof(trustedlo_ctxt_t) <= 0x1000, "unexpected trustedlo_ctxt_t 
     static inline void                                                \
     trustedlo_ctxt_set__##name(                                       \
         trustedlo_ctxt_t *ctxt,                                       \
-        const tsldr_acrt_entry_t *entry,                              \
-        access_rights_state_t state)                                  \
+        const xrt_entry_t *entry,                                     \
+        xrt_state_t state)                                            \
     {                                                                 \
         ctxt->field[entry->data] = state;                             \
     }                                                                 \
@@ -128,8 +133,8 @@ _Static_assert(sizeof(trustedlo_ctxt_t) <= 0x1000, "unexpected trustedlo_ctxt_t 
     static inline bool                                                \
     trustedlo_ctxt_check__##name(                                     \
         const trustedlo_ctxt_t *ctxt,                                 \
-        const tsldr_acrt_entry_t *entry,                              \
-        access_rights_state_t state)                                  \
+        const xrt_entry_t *entry,                                     \
+        xrt_state_t state)                                            \
     {                                                                 \
         return ctxt->field[entry->data] == state;                     \
     }                                                                 \
@@ -137,13 +142,13 @@ _Static_assert(sizeof(trustedlo_ctxt_t) <= 0x1000, "unexpected trustedlo_ctxt_t 
     static inline void                                                \
     trustedlo_ctxt_allow__##name(                                     \
         trustedlo_ctxt_t *ctxt,                                       \
-        const tsldr_acrt_entry_t *entry)                              \
+        const xrt_entry_t *entry)                                     \
     {                                                                 \
-        access_rights_state_t next_state = ACCESS_RIGHTS_ALLOWED;     \
+        xrt_state_t next_state = XRT_STATE_ALLOWED;               \
                                                                       \
         if (trustedlo_ctxt_check__##name(                             \
-                ctxt, entry, ACCESS_RIGHTS_USED)) {                   \
-            next_state = ACCESS_RIGHTS_KEEP;                          \
+                ctxt, entry, XRT_STATE_USED)) {                   \
+            next_state = XRT_STATE_KEEP;                          \
         }                                                             \
                                                                       \
         trustedlo_ctxt_set__##name(ctxt, entry, next_state);          \
@@ -156,14 +161,6 @@ CONTEXT_ACCESSOR_LIST(DEFINE_CONTEXT_ACCESSORS)
 
 typedef void (*entry_fn_t)(const trampoline_args_t *);
 
-
-enum {
-    TYPE_NOTIFICATION = 0x01,
-    TYPE_PPC     = 0x02,
-    TYPE_IRQ     = 0x03,
-    TYPE_IOPORT  = 0x04,
-    TYPE_MEMORY  = 0x05,
-};
 
 
 #define TRY_OR_RETURN_VOID(expr)            \
