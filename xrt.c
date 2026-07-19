@@ -4,6 +4,10 @@
 #include <miscutils.h>
 #include <libtrustedlo.h>
 
+/* once uncomment this, you will map all frames one by one */
+// #undef CONFIG_BATCHING_MAP
+
+
 bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *txlo_info, seL4_Word *cookie)
 {
     txlo_info_t *md = (txlo_info_t *)txlo_info;
@@ -40,98 +44,76 @@ bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *txlo_info)
     return md->bitmap_opt_ioports & (1 << ioport);
 }
 
-/* once uncomment this, you will map all frames one by one */
-// #undef CONFIG_BATCHING_MAP
 
-
-/* Restore disallowed notification capabilities from last run */
-void trustedlo_xrt_util_restore_notifications(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
-
-    for (seL4_Word ntfn = 0; ntfn < MICROKIT_MAX_CHANNELS; ntfn++) {
-        /*
-         * If the notification id points to an allowed notification number,
-         * we don't need to restore it as it stays in the CNode
-         */
-        if (ctxt->allowed_notifications[ntfn] == XRT_STATE_KEEP) {
-            ctxt->allowed_notifications[ntfn] = XRT_STATE_USED;
-            continue;
-        }
-        if (ctxt->allowed_notifications[ntfn] == XRT_STATE_UNSET) {
-            continue;
-        }
-        /* the notification id given is invalid, skip it */
-        if (trustedlo_xrt_util_check_notification(ntfn, txlo_info) == false) {
-            continue;
-        }
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "notification '%d' to restore\n", ntfn);
-
-        trustedlo_cap_util_restore_notification_cap(ntfn);
-        ctxt->allowed_notifications[ntfn] = XRT_STATE_USED;
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore notification '%d'\n", ntfn);
+#define XRT_REVOKE(                                                       \
+    plural, singular, field, check_fn, revoke_fn, restore_fn)             \
+    void                                                                  \
+    trustedlo_xrt_util_revoke_##plural(                                   \
+        void *data,                                                       \
+        void *txlo_info)                                                  \
+    {                                                                     \
+        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                \
+        for (seL4_Word id = 0;                                            \
+             id < MICROKIT_MAX_CHANNELS;                                  \
+             id++) {                                                      \
+            if (ctxt->field[id] != XRT_STATE_USED) {                      \
+                continue;                                                 \
+            }                                                             \
+            if (!check_fn(id, txlo_info)) {                               \
+                continue;                                                 \
+            }                                                             \
+            revoke_fn(id);                                                \
+            ctxt->field[id] = XRT_STATE_UNSET;                            \
+        }                                                                 \
     }
-}
 
-/* Restore disallowed PPC capabilities from last run */
-void trustedlo_xrt_util_restore_ppcs(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
-
-    for (seL4_Word ppc = 0; ppc < MICROKIT_MAX_CHANNELS; ppc++) {
-        /*
-         * If the PPC id points to an allowed PPC number,
-         * we don't need to restore it as it stays in the CNode
-         */
-        if (ctxt->allowed_ppcs[ppc] == XRT_STATE_KEEP) {
-            ctxt->allowed_ppcs[ppc] = XRT_STATE_USED;
-            continue;
-        }
-        if (ctxt->allowed_ppcs[ppc] == XRT_STATE_UNSET) {
-            continue;
-        }
-        /* the PPC id given is invalid, skip it */
-        if (trustedlo_xrt_util_check_ppc(ppc, txlo_info) == false) {
-            continue;
-        }
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ppc '%d' to restore\n", ppc);
-
-        trustedlo_cap_util_restore_ppc_cap(ppc);
-        ctxt->allowed_ppcs[ppc] = XRT_STATE_USED;
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore ppc '%d'\n", ppc);
+#define XRT_RESTORE(                                                      \
+    plural, singular, field, check_fn, revoke_fn, restore_fn)             \
+    void                                                                  \
+    trustedlo_xrt_util_restore_##plural(                                  \
+        void *data,                                                       \
+        void *txlo_info)                                                  \
+    {                                                                     \
+        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                \
+        for (seL4_Word id = 0;                                            \
+             id < MICROKIT_MAX_CHANNELS;                                  \
+             id++) {                                                      \
+            xrt_state_t *state = &ctxt->field[id];                        \
+            if (*state == XRT_STATE_KEEP) {                               \
+                *state = XRT_STATE_USED;                                  \
+                continue;                                                 \
+            }                                                             \
+            if (*state == XRT_STATE_UNSET) {                              \
+                continue;                                                 \
+            }                                                             \
+            if (!check_fn(id, txlo_info)) {                               \
+                continue;                                                 \
+            }                                                             \
+            restore_fn(id);                                               \
+            *state = XRT_STATE_USED;                                      \
+        }                                                                 \
     }
-}
 
-/* Restore disallowed IRQ capabilities from last run */
-void trustedlo_xrt_util_restore_irqs(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
+#define XRTS_DEF(X)                                                       \
+    X(notifications, notification, allowed_notifications,                 \
+      trustedlo_xrt_util_check_notification,                              \
+      trustedlo_cap_util_revoke_notification_cap,                         \
+      trustedlo_cap_util_restore_notification_cap)                        \
+                                                                          \
+    X(ppcs, ppc, allowed_ppcs,                                            \
+      trustedlo_xrt_util_check_ppc,                                       \
+      trustedlo_cap_util_revoke_ppc_cap,                                  \
+      trustedlo_cap_util_restore_ppc_cap)                                 \
+                                                                          \
+    X(irqs, irq, allowed_irqs,                                            \
+      trustedlo_xrt_util_check_irq,                                       \
+      trustedlo_cap_util_revoke_irq_cap,                                  \
+      trustedlo_cap_util_restore_irq_cap)
 
-    for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
-        /*
-         * If the IRQ id points to an allowed interrupt number,
-         * we don't need to restore it as it stays in the CNode
-         */
-        if (ctxt->allowed_irqs[irq] == XRT_STATE_KEEP) {
-            ctxt->allowed_irqs[irq] = XRT_STATE_USED;
-            continue;
-        }
-        if (ctxt->allowed_irqs[irq] == XRT_STATE_UNSET || !trustedlo_xrt_util_check_irq(irq, txlo_info)) {
-            continue;
-        }
-        
-        trustedlo_cap_util_restore_irq_cap(irq);
+XRTS_DEF(XRT_REVOKE)
+XRTS_DEF(XRT_RESTORE)
 
-        ctxt->allowed_irqs[irq] = XRT_STATE_USED;
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore irq '%d'\n", irq);
-    }
-}
 
 void trustedlo_xrt_util_restore_mappings(void *data)
 {
@@ -170,75 +152,6 @@ void trustedlo_xrt_util_restore_mappings(void *data)
 
     trustedlo_cap_util_pd_revoke_vspace_access();
 
-}
-
-
-void trustedlo_xrt_util_revoke_notifications(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
-
-    for (seL4_Word ntfn = 0; ntfn < MICROKIT_MAX_CHANNELS; ntfn++) {
-
-        /* we simply ignore 'unset' as they never exist,*/
-        /* and for allowed they should be created */
-        /* for keep they should be ignored as well */
-        if (ctxt->allowed_notifications[ntfn] != XRT_STATE_USED) {
-            continue;
-        }
-
-        /* the notification id given is invalid, skip it as no need to delete it */
-        if (trustedlo_xrt_util_check_notification(ntfn, txlo_info) == false) {
-            continue;
-        }
-        trustedlo_cap_util_revoke_notification_cap(ntfn);
-        ctxt->allowed_notifications[ntfn] = XRT_STATE_UNSET;
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke notification '%d'\n", ntfn);
-    }
-}
-
-void trustedlo_xrt_util_revoke_ppcs(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
-
-    for (seL4_Word ppc = 0; ppc < MICROKIT_MAX_CHANNELS; ppc++) {
-
-        /* we simply ignore 'unset' as they never exist,*/
-        /* and for allowed they should be created */
-        /* for keep they should be ignored as well */
-        if (ctxt->allowed_ppcs[ppc] != XRT_STATE_USED) {
-            continue;
-        }
-
-        /* the ppc id given is invalid, skip it as no need to delete it */
-        if (trustedlo_xrt_util_check_ppc(ppc, txlo_info) == false) {
-            continue;
-        }
-        trustedlo_cap_util_revoke_ppc_cap(ppc);
-        ctxt->allowed_ppcs[ppc] = XRT_STATE_UNSET;
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke ppc '%d'\n", ppc);
-    }
-}
-
-void trustedlo_xrt_util_revoke_irqs(void *data, void *txlo_info)
-{
-    /* initialise trusted ctxt context */
-    trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
-
-    for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
-
-        if (ctxt->allowed_irqs[irq] != XRT_STATE_USED || !trustedlo_xrt_util_check_irq(irq, txlo_info)) {
-            continue;
-        }
-        trustedlo_cap_util_revoke_irq_cap(irq);
-
-        ctxt->allowed_irqs[irq] = XRT_STATE_UNSET;
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke irq '%d'\n", irq);
-    }
 }
 
 void trustedlo_xrt_util_revoke_mappings(void *data)
