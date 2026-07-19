@@ -35,23 +35,23 @@ typedef struct {
 
 
 typedef struct {
-    seL4_Word num_req_notifications;
-    seL4_Word num_req_ppcs;
-    seL4_Word num_req_irqs;
-    seL4_Word num_req_ioports;
-    seL4_Word num_req_mappings;
+    uint64_t num_req_notifications;
+    uint64_t num_req_ppcs;
+    uint64_t num_req_irqs;
+    uint64_t num_req_ioports;
+    uint64_t num_req_mappings;
     seL4_Word notifications[MICROKIT_MAX_CHANNELS];
     seL4_Word ppcs[MICROKIT_MAX_CHANNELS];
     seL4_Word irqs[MICROKIT_MAX_CHANNELS];
     seL4_Word ioports[MICROKIT_MAX_CHANNELS];
     seL4_Word mappings[MICROKIT_MAX_CHANNELS];
-} tsldr_acrtreq_t;
+} trustedlo_xrtreq_t;
 
 
 typedef struct {
     uint64_t total_num;
     uint64_t serialised_offset;
-} tsldr_acrtreq_header_t;
+} trustedlo_xrtreq_header_t;
 
 
 
@@ -185,5 +185,5 @@ typedef void (*entry_fn_t)(const trampoline_args_t *);
 void microkit_trustedlo_selfload_entry(void);
 
 void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo);
-void tsldr_main_monitor_encode_required_rights(void *base, const tsldr_acrtreq_t *req);
+void tsldr_main_monitor_encode_required_rights(void *base, const trustedlo_xrtreq_t *req);
 void tsldr_main_monitor_privilege_pd(seL4_Word cid);

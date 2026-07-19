@@ -6,14 +6,14 @@
 
 
 static inline seL4_Error
-microkit_trustedlo_parse_requst(void *data)
+microkit_trustedlo_parse_requst(void *xrt_req_header)
 {
-    if (!data) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid request given\n");
+    if (!xrt_req_header) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid xrt_req_header given\n");
         return -1;
     }
 
-    tsldr_acrtutil_check_access_rights_table(data);
+    tsldr_acrtutil_check_access_rights_table(xrt_req_header);
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 
@@ -22,9 +22,9 @@ microkit_trustedlo_parse_requst(void *data)
 
 
 static inline seL4_Error
-microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *data)
+microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(tsldr_acrtutil_populate_all_rights(context, mdinfo, data));
+    TRY_OR_RETURN_ERROR(tsldr_acrtutil_populate_all_rights(context, mdinfo, xrt_req_header));
     return seL4_NoError;
 }
 
@@ -32,12 +32,6 @@ microkit_trustedlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, vo
 static inline void
 tsldr_main_remove_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
-    if (!context) {
-        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts("tsldr_main_remove_caps: ");
-        microkit_dbg_puts(" invalid context pointer given\n");
-        microkit_internal_crash(-1);
-    }
     /* set the flag to restore cap during restart */
     if (context->restore == false) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "tsldr_main_remove_caps: need to restore access rights in next round\n");
@@ -55,13 +49,6 @@ tsldr_main_remove_caps(trustedlo_ctxt_t *context, void *mdinfo)
 static inline void
 tsldr_main_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
 {
-    if (!context) {
-        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts("tsldr_main_restore_caps: ");
-        microkit_dbg_puts(" invalid context pointer given\n");
-        microkit_internal_crash(-1);
-    }
-
     /* for XRT_STATE_KEEP, keep them as USED */
     /* for XRT_STATE_ALLOWED, create them from backup CNode */
     /* for XRT_STATE_UNSET, do nothing */
@@ -94,6 +81,9 @@ microkit_trustedlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
         context->init = true;
         context->restore = false;
     }
+
+    /* the only thing that needs to be renew for now. */
+    context->allowed_mappings.mapping_count = 0;
     return seL4_NoError;
 }
 
@@ -164,9 +154,9 @@ microkit_trustedlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
 
 
 static inline seL4_Error
-microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *acrt_stat_base)
+microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(acrt_stat_base));
+    TRY_OR_RETURN_ERROR(microkit_trustedlo_parse_requst(xrt_req_header));
 
     /* (really) populate allowed access rights */
     // we use this function to:
@@ -174,7 +164,7 @@ microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_populate_req2ctxt(context, mdinfo, acrt_stat_base));
+    TRY_OR_RETURN_ERROR(microkit_trustedlo_populate_req2ctxt(context, mdinfo, xrt_req_header));
 
     TRY_OR_RETURN_ERROR(microkit_trustedlo_enforce_pola(context, mdinfo));
 
@@ -184,10 +174,10 @@ microkit_trustedlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void
 }
 
 static inline seL4_Error
-microkit_trustedlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *acrt_stat_base)
+microkit_trustedlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
     TRY_OR_RETURN_ERROR(microkit_trustedlo_context_activate(mdinfo, context));
-    TRY_OR_RETURN_ERROR(microkit_trustedlo_context_refresh(mdinfo, context, acrt_stat_base));
+    TRY_OR_RETURN_ERROR(microkit_trustedlo_context_refresh(mdinfo, context, xrt_req_header));
 
     return seL4_NoError;
 }
@@ -293,7 +283,7 @@ void microkit_trustedlo_selfload_entry(void)
      * obtained directly from tsldr_vm_layout.
      */
     void *mdinfo = (void *)tsldr_vm_layout.loader_metadata.base;
-    void *acrt_stat_base = (void *)tsldr_vm_layout.ossvc_metadata.base;
+    void *xrt_req_header = (void *)tsldr_vm_layout.ossvc_metadata.base;
     trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
 
     uintptr_t client_elf = tsldr_vm_layout.container_image.base;
@@ -301,7 +291,7 @@ void microkit_trustedlo_selfload_entry(void)
 
     TRY_OR_RETURN_VOID(microkit_trustedlo_payload_check_integrity(client_elf));
     TRY_OR_RETURN_VOID(microkit_trustedlo_payload_check_integrity(trampoline_elf));
-    TRY_OR_RETURN_VOID(microkit_trustedlo_context_switch(mdinfo, context, acrt_stat_base));
+    TRY_OR_RETURN_VOID(microkit_trustedlo_context_switch(mdinfo, context, xrt_req_header));
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;

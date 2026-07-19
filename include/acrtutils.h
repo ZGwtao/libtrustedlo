@@ -27,19 +27,5 @@ void tsldr_acrtutil_revoke_mappings(void *data);
 seL4_Error tsldr_acrtutil_populate_all_rights(void *ctxt, void *mdinfo, void *req);
 
 
-void
-tsldr_acrtutil_encode_rights(
-    void *base,
-    const seL4_Word notifications[],
-    const size_t n_notifications,
-    const seL4_Word ppcs[],
-    const size_t n_ppcs,
-    const seL4_Word irqs[],
-    const size_t n_irqs,
-    const seL4_Word ioports[],
-    const size_t n_ioports,
-    const seL4_Word mappings[],
-    const size_t n_mappings
-);
-
+void tsldr_acrtutil_encode_rights(void *base, const void *src);
 void tsldr_acrtutil_check_access_rights_table(void *base);

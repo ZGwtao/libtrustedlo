@@ -34,8 +34,8 @@ void tsldr_main_monitor_privilege_pd(seL4_Word cid)
 
 
 void tsldr_main_monitor_encode_required_rights(
-    void *acrt_stat_base, /* dest */
-    const tsldr_acrtreq_t *req_acrt /* src */
+    void *xrt_entry_list, /* dest */
+    const trustedlo_xrtreq_t *xrt_req_list /* src */
 ) {
     /*
      * This function writes serialised access rights
@@ -43,17 +43,5 @@ void tsldr_main_monitor_encode_required_rights(
      * The trustedlo loader will then use shared memory
      *            to access 'dest' at template PD side.
      */
-    tsldr_acrtutil_encode_rights(
-        acrt_stat_base,
-        req_acrt->notifications,
-        req_acrt->num_req_notifications,
-        req_acrt->ppcs,
-        req_acrt->num_req_ppcs,
-        req_acrt->irqs,
-        req_acrt->num_req_irqs,
-        req_acrt->ioports,
-        req_acrt->num_req_ioports,
-        req_acrt->mappings,
-        req_acrt->num_req_mappings
-    );
+    tsldr_acrtutil_encode_rights(xrt_entry_list, xrt_req_list);
 }

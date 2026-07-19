@@ -271,78 +271,66 @@ void tsldr_acrtutil_revoke_mappings(void *data)
 }
 
 
-void
-tsldr_acrtutil_encode_rights(
-    void *base,
-    const seL4_Word notifications[],
-    const size_t n_notifications,
-    const seL4_Word ppcs[],
-    const size_t n_ppcs,
-    const seL4_Word irqs[],
-    const size_t n_irqs,
-    const seL4_Word ioports[],
-    const size_t n_ioports,
-    const seL4_Word mappings[],
-    const size_t n_mappings
-)
+void tsldr_acrtutil_encode_rights(void *base, const void *src)
 {
-    xrt_entry_t *p = base;
+    xrt_entry_t *xrt_entry_list = base;
+    const trustedlo_xrtreq_t *req_xrt_list = src;
 
-    for (size_t i = 0; i < n_notifications; ++i) {
-        p->type = XRT_TYPE_NTFN;
-        p->data = notifications[i];
-        p++;
+    for (uint64_t i = 0; i < req_xrt_list->num_req_notifications; ++i) {
+        xrt_entry_list->type = XRT_TYPE_NTFN;
+        xrt_entry_list->data = req_xrt_list->notifications[i];
+        xrt_entry_list++;
     }
-    for (size_t i = 0; i < n_ppcs; ++i) {
-        p->type = XRT_TYPE_PPC;
-        p->data = ppcs[i];
-        p++;
+    for (uint64_t i = 0; i < req_xrt_list->num_req_ppcs; ++i) {
+        xrt_entry_list->type = XRT_TYPE_PPC;
+        xrt_entry_list->data = req_xrt_list->ppcs[i];
+        xrt_entry_list++;
     }
-    for (size_t i = 0; i < n_irqs; ++i) {
-        p->type = XRT_TYPE_IRQ;
-        p->data = irqs[i];
-        p++;
+    for (uint64_t i = 0; i < req_xrt_list->num_req_irqs; ++i) {
+        xrt_entry_list->type = XRT_TYPE_IRQ;
+        xrt_entry_list->data = req_xrt_list->irqs[i];
+        xrt_entry_list++;
     }
-    for (size_t i = 0; i < n_ioports; ++i) {
-        p->type = XRT_TYPE_IOPORT;
-        p->data = ioports[i];
-        p++;
+    for (uint64_t i = 0; i < req_xrt_list->num_req_ioports; ++i) {
+        xrt_entry_list->type = XRT_TYPE_IOPORT;
+        xrt_entry_list->data = req_xrt_list->ioports[i];
+        xrt_entry_list++;
     }
-    for (size_t i = 0; i < n_mappings; ++i) {
-        p->type = XRT_TYPE_MEMORY;
-        p->data = mappings[i];
-        p++;
+    for (uint64_t i = 0; i < req_xrt_list->num_req_mappings; ++i) {
+        xrt_entry_list->type = XRT_TYPE_MEMORY;
+        xrt_entry_list->data = req_xrt_list->mappings[i];
+        xrt_entry_list++;
     }
 }
 
 
 static inline seL4_Error
-trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *req_xrt)
+trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *xrt_entry)
 {
-    switch (req_xrt->type) {
+    switch (xrt_entry->type) {
     case XRT_TYPE_NTFN:
-        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_notification(req_xrt->data, mdinfo));
-        trustedlo_ctxt_allow__ntfn(ctxt, req_xrt);
+        TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_notification(xrt_entry->data, mdinfo));
+        trustedlo_ctxt_allow__ntfn(ctxt, xrt_entry);
         break;
     case XRT_TYPE_PPC:
-        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_ppc(req_xrt->data, mdinfo));
-        trustedlo_ctxt_allow__ppcs(ctxt, req_xrt);
+        TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_ppc(xrt_entry->data, mdinfo));
+        trustedlo_ctxt_allow__ppcs(ctxt, xrt_entry);
         break;
     case XRT_TYPE_IRQ:
-        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_irq(req_xrt->data, mdinfo));
-        trustedlo_ctxt_allow__irq(ctxt, req_xrt);
+        TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_irq(xrt_entry->data, mdinfo));
+        trustedlo_ctxt_allow__irq(ctxt, xrt_entry);
         break;
     case XRT_TYPE_IOPORT:
-        TSLDR_ASSERT(req_xrt->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(tsldr_acrtutil_check_ioport(req_xrt->data, mdinfo));
-        trustedlo_ctxt_allow__ioport(ctxt, req_xrt);
+        TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
+        TSLDR_ASSERT(tsldr_acrtutil_check_ioport(xrt_entry->data, mdinfo));
+        trustedlo_ctxt_allow__ioport(ctxt, xrt_entry);
         break;
     case XRT_TYPE_MEMORY:
         TSLDR_ASSERT(ctxt->allowed_mappings.mapping_count < MICROKIT_MAX_CHANNELS);
-        uintptr_t m = tsldr_acrtutil_check_mapping(req_xrt->data, mdinfo);
+        uintptr_t m = tsldr_acrtutil_check_mapping(xrt_entry->data, mdinfo);
         TSLDR_ASSERT(m);
         if (ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] == XRT_STATE_USED) {
             ctxt->allowed_mappings.mapping_state[ctxt->allowed_mappings.mapping_count] = XRT_STATE_KEEP;
@@ -359,33 +347,29 @@ trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *req
 
 
 seL4_Error
-tsldr_acrtutil_populate_all_rights(void *context, void *mdinfo, void *req)
+tsldr_acrtutil_populate_all_rights(void *context, void *mdinfo, void *xrt_req_header)
 {
     trustedlo_ctxt_t *ctxt = context;
-    /* TODO: wrap up below */
-    {
-        ctxt->allowed_mappings.mapping_count = 0;
-    }
+    const trustedlo_xrtreq_header_t *header = xrt_req_header;
+    xrt_entry_t *xrt_entry_list = NULL;
+    uint64_t xrt_entry_num;
 
-    const tsldr_acrtreq_header_t *header = req;
-    xrt_entry_t *req_xrt_list = NULL;
-    uint64_t req_xrt_num;
-
-    req_xrt_num = header->total_num;
-    req_xrt_list = (xrt_entry_t *)(
+    xrt_entry_num = header->total_num;
+    xrt_entry_list = (xrt_entry_t *)(
                         (char *)(header) +
                                 (header->serialised_offset)
                     );
+    /* todo: check xrt region size */
 
     for (uint64_t i = 0;
-         i < req_xrt_num;
+         i < xrt_entry_num;
          i++
     ) {
         TRY_OR_RETURN_ERROR(
         trustedlo_acrt_workerfunc(
             ctxt,
             mdinfo,
-            &req_xrt_list[i]
+            &xrt_entry_list[i]
         ));
     }
     return seL4_NoError;
@@ -394,14 +378,14 @@ tsldr_acrtutil_populate_all_rights(void *context, void *mdinfo, void *req)
 
 void tsldr_acrtutil_check_access_rights_table(void *base)
 {
-    const tsldr_acrtreq_header_t *header = NULL;
+    const trustedlo_xrtreq_header_t *header = NULL;
     if (!base) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
         microkit_dbg_puts(" invalid pointer given\n");
         microkit_internal_crash(-1);
     }
-    header = (tsldr_acrtreq_header_t *)(base);
+    header = (trustedlo_xrtreq_header_t *)(base);
     TSLDR_DBG_PRINT(
         LIB_NAME_MACRO
         "number of access rights checked '%d'\n",
@@ -414,7 +398,7 @@ void tsldr_acrtutil_check_access_rights_table(void *base)
         microkit_dbg_put32(header->total_num);
         microkit_internal_crash(-1);
     }    
-    if (header->serialised_offset < sizeof(tsldr_acrtreq_header_t)) {
+    if (header->serialised_offset < sizeof(trustedlo_xrtreq_header_t)) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table: ");
         microkit_dbg_puts(" invalid acrtreq entry list offset given\n");
