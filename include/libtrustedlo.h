@@ -42,7 +42,7 @@ typedef microkit_trustedlo_info_t txlo_info_t;
 
 typedef struct {
     uint8_t avails;
-    txlo_info_t infodb[MAX_DYN_PD_PER_MONITOR];
+    txlo_info_t tplet_pd_txlo_info_list[MAX_DYN_PD_PER_MONITOR];
 } microkit_trustedlo_monitor_t;
 typedef microkit_trustedlo_monitor_t txlo_monitor_t;
 
@@ -203,6 +203,6 @@ typedef void (*entry_fn_t)(const trampoline_args_t *);
 
 void mktxlo_self_load_entry(void);
 
-void mktxlo_prepare_txlo_info(txlo_monitor_t *db, size_t id, void *mdinfo);
+void mktxlo_prepare_txlo_info(txlo_monitor_t *monitor, size_t id, void *txlo_info);
 void mktxlo_prepare_xrt_req_list(void *base, const trustedlo_xrtreq_t *req);
 void mktxlo_privilege_template_pd(seL4_Word cid);

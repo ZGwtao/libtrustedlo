@@ -4,18 +4,18 @@
 #include <libtrustedlo.h>
 
 
-void mktxlo_prepare_txlo_info(txlo_monitor_t *db, size_t id, void *mdinfo)
+void mktxlo_prepare_txlo_info(txlo_monitor_t *monitor, size_t id, void *txlo_info)
 {
-    if (!db || !mdinfo) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
+    if (!monitor || !txlo_info) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid txlo_info database pointer given\n");
         return;
     }
     if (id >= MAX_DYN_PD_PER_MONITOR) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
         return;
     }
-    txlo_info_t *dest = (txlo_info_t *)mdinfo;
-    txlo_info_t *src = &db->infodb[id];
+    txlo_info_t *dest = (txlo_info_t *)txlo_info;
+    txlo_info_t *src = &monitor->tplet_pd_txlo_info_list[id];
 
     tsldr_miscutil_memset(dest, 0, sizeof(txlo_info_t));
     tsldr_miscutil_memcpy(dest, src, sizeof(txlo_info_t));
@@ -43,5 +43,5 @@ void mktxlo_prepare_xrt_req_list(
      * The trustedlo loader will then use shared memory
      *            to access 'dest' at template PD side.
      */
-    trustedlo_xrt_util_encode_rights(xrt_entry_list, xrt_req_list);
+    trustedlo_xrt_util_encode_xrts(xrt_entry_list, xrt_req_list);
 }

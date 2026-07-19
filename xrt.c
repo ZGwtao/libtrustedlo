@@ -4,9 +4,9 @@
 #include <miscutils.h>
 #include <libtrustedlo.h>
 
-bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *mdinfo, seL4_Word *cookie)
+bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *txlo_info, seL4_Word *cookie)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     for (int i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
         if (md->mappings[i].vaddr == vaddr) {
             *cookie = (seL4_Word)(&md->mappings[i]);
@@ -16,27 +16,27 @@ bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *mdinfo, seL4_Word *
     return false;
 }
 
-bool trustedlo_xrt_util_check_notification(seL4_Word ntfn, void *mdinfo)
+bool trustedlo_xrt_util_check_notification(seL4_Word ntfn, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     return md->bitmap_opt_notifications & (1 << ntfn);
 }
 
-bool trustedlo_xrt_util_check_ppc(seL4_Word ppc, void *mdinfo)
+bool trustedlo_xrt_util_check_ppc(seL4_Word ppc, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     return md->bitmap_opt_ppcs & (1 << ppc);
 }
 
-bool trustedlo_xrt_util_check_irq(seL4_Word irq, void *mdinfo)
+bool trustedlo_xrt_util_check_irq(seL4_Word irq, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     return md->bitmap_opt_irqs & (1 << irq);
 }
 
-bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *mdinfo)
+bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     return md->bitmap_opt_ioports & (1 << ioport);
 }
 
@@ -45,7 +45,7 @@ bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *mdinfo)
 
 
 /* Restore disallowed notification capabilities from last run */
-void trustedlo_xrt_util_restore_notifications(void *data, void *mdinfo)
+void trustedlo_xrt_util_restore_notifications(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
@@ -63,7 +63,7 @@ void trustedlo_xrt_util_restore_notifications(void *data, void *mdinfo)
             continue;
         }
         /* the notification id given is invalid, skip it */
-        if (trustedlo_xrt_util_check_notification(ntfn, mdinfo) == false) {
+        if (trustedlo_xrt_util_check_notification(ntfn, txlo_info) == false) {
             continue;
         }
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "notification '%d' to restore\n", ntfn);
@@ -76,7 +76,7 @@ void trustedlo_xrt_util_restore_notifications(void *data, void *mdinfo)
 }
 
 /* Restore disallowed PPC capabilities from last run */
-void trustedlo_xrt_util_restore_ppcs(void *data, void *mdinfo)
+void trustedlo_xrt_util_restore_ppcs(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
@@ -94,7 +94,7 @@ void trustedlo_xrt_util_restore_ppcs(void *data, void *mdinfo)
             continue;
         }
         /* the PPC id given is invalid, skip it */
-        if (trustedlo_xrt_util_check_ppc(ppc, mdinfo) == false) {
+        if (trustedlo_xrt_util_check_ppc(ppc, txlo_info) == false) {
             continue;
         }
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "ppc '%d' to restore\n", ppc);
@@ -107,7 +107,7 @@ void trustedlo_xrt_util_restore_ppcs(void *data, void *mdinfo)
 }
 
 /* Restore disallowed IRQ capabilities from last run */
-void trustedlo_xrt_util_restore_irqs(void *data, void *mdinfo)
+void trustedlo_xrt_util_restore_irqs(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
@@ -121,7 +121,7 @@ void trustedlo_xrt_util_restore_irqs(void *data, void *mdinfo)
             ctxt->allowed_irqs[irq] = XRT_STATE_USED;
             continue;
         }
-        if (ctxt->allowed_irqs[irq] == XRT_STATE_UNSET || !trustedlo_xrt_util_check_irq(irq, mdinfo)) {
+        if (ctxt->allowed_irqs[irq] == XRT_STATE_UNSET || !trustedlo_xrt_util_check_irq(irq, txlo_info)) {
             continue;
         }
         
@@ -173,7 +173,7 @@ void trustedlo_xrt_util_restore_mappings(void *data)
 }
 
 
-void trustedlo_xrt_util_revoke_notifications(void *data, void *mdinfo)
+void trustedlo_xrt_util_revoke_notifications(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
@@ -188,7 +188,7 @@ void trustedlo_xrt_util_revoke_notifications(void *data, void *mdinfo)
         }
 
         /* the notification id given is invalid, skip it as no need to delete it */
-        if (trustedlo_xrt_util_check_notification(ntfn, mdinfo) == false) {
+        if (trustedlo_xrt_util_check_notification(ntfn, txlo_info) == false) {
             continue;
         }
         trustedlo_cap_util_revoke_notification_cap(ntfn);
@@ -198,7 +198,7 @@ void trustedlo_xrt_util_revoke_notifications(void *data, void *mdinfo)
     }
 }
 
-void trustedlo_xrt_util_revoke_ppcs(void *data, void *mdinfo)
+void trustedlo_xrt_util_revoke_ppcs(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
@@ -213,7 +213,7 @@ void trustedlo_xrt_util_revoke_ppcs(void *data, void *mdinfo)
         }
 
         /* the ppc id given is invalid, skip it as no need to delete it */
-        if (trustedlo_xrt_util_check_ppc(ppc, mdinfo) == false) {
+        if (trustedlo_xrt_util_check_ppc(ppc, txlo_info) == false) {
             continue;
         }
         trustedlo_cap_util_revoke_ppc_cap(ppc);
@@ -223,14 +223,14 @@ void trustedlo_xrt_util_revoke_ppcs(void *data, void *mdinfo)
     }
 }
 
-void trustedlo_xrt_util_revoke_irqs(void *data, void *mdinfo)
+void trustedlo_xrt_util_revoke_irqs(void *data, void *txlo_info)
 {
     /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
-        if (ctxt->allowed_irqs[irq] != XRT_STATE_USED || !trustedlo_xrt_util_check_irq(irq, mdinfo)) {
+        if (ctxt->allowed_irqs[irq] != XRT_STATE_USED || !trustedlo_xrt_util_check_irq(irq, txlo_info)) {
             continue;
         }
         trustedlo_cap_util_revoke_irq_cap(irq);
@@ -276,7 +276,7 @@ void trustedlo_xrt_util_revoke_mappings(void *data)
 }
 
 
-void trustedlo_xrt_util_encode_rights(void *base, const void *src)
+void trustedlo_xrt_util_encode_xrts(void *base, const void *src)
 {
     xrt_entry_t *xrt_entry_list = base;
     const trustedlo_xrtreq_t *req_xrt_list = src;
@@ -310,37 +310,37 @@ void trustedlo_xrt_util_encode_rights(void *base, const void *src)
 
 
 static inline seL4_Error
-trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *xrt_entry)
+trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *txlo_info, xrt_entry_t *xrt_entry)
 {
     switch (xrt_entry->type) {
     case XRT_TYPE_NTFN: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_notification(xrt_entry->data, mdinfo));
+        TSLDR_ASSERT(trustedlo_xrt_util_check_notification(xrt_entry->data, txlo_info));
         trustedlo_ctxt_allow__ntfn(ctxt, xrt_entry);
         break;
     }
     case XRT_TYPE_PPC: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_ppc(xrt_entry->data, mdinfo));
+        TSLDR_ASSERT(trustedlo_xrt_util_check_ppc(xrt_entry->data, txlo_info));
         trustedlo_ctxt_allow__ppcs(ctxt, xrt_entry);
         break;
     }
     case XRT_TYPE_IRQ: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_irq(xrt_entry->data, mdinfo));
+        TSLDR_ASSERT(trustedlo_xrt_util_check_irq(xrt_entry->data, txlo_info));
         trustedlo_ctxt_allow__irq(ctxt, xrt_entry);
         break;
     }
     case XRT_TYPE_IOPORT: {
         TSLDR_ASSERT(xrt_entry->data < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_ioport(xrt_entry->data, mdinfo));
+        TSLDR_ASSERT(trustedlo_xrt_util_check_ioport(xrt_entry->data, txlo_info));
         trustedlo_ctxt_allow__ioport(ctxt, xrt_entry);
         break;
     }
     case XRT_TYPE_MEMORY: {
         seL4_Word mapping_cookie = 0;
         TSLDR_ASSERT(ctxt->allowed_mappings.mapping_count < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_mapping(xrt_entry->data, mdinfo, &mapping_cookie));
+        TSLDR_ASSERT(trustedlo_xrt_util_check_mapping(xrt_entry->data, txlo_info, &mapping_cookie));
         trustedlo_ctxt_allow__mapping(ctxt, mapping_cookie);
         break;
     }
@@ -352,7 +352,7 @@ trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *mdinfo, xrt_entry_t *xrt
 
 
 seL4_Error
-trustedlo_xrt_util_populate_all_rights(void *context, void *mdinfo, void *xrt_req_header)
+trustedlo_xrt_util_populate_xrts(void *context, void *txlo_info, void *xrt_req_header)
 {
     trustedlo_ctxt_t *ctxt = context;
     const trustedlo_xrtreq_header_t *header = xrt_req_header;
@@ -373,7 +373,7 @@ trustedlo_xrt_util_populate_all_rights(void *context, void *mdinfo, void *xrt_re
         TRY_OR_RETURN_ERROR(
         trustedlo_acrt_workerfunc(
             ctxt,
-            mdinfo,
+            txlo_info,
             &xrt_entry_list[i]
         ));
     }
@@ -381,34 +381,33 @@ trustedlo_xrt_util_populate_all_rights(void *context, void *mdinfo, void *xrt_re
 }
 
 
-void trustedlo_xrt_util_check_access_rights_table(void *base)
+seL4_Error trustedlo_xrt_util_parse_xrt_header(void *xrt_req_header)
 {
-    const trustedlo_xrtreq_header_t *header = NULL;
-    if (!base) {
+    const trustedlo_xrtreq_header_t *header = xrt_req_header;
+    if (!header) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_check_access_rights_table: ");
+        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
         microkit_dbg_puts(" invalid pointer given\n");
-        microkit_internal_crash(-1);
+        return -1;
     }
-    header = (trustedlo_xrtreq_header_t *)(base);
-    TSLDR_DBG_PRINT(
-        LIB_NAME_MACRO
-        "number of access rights checked '%d'\n",
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO
+        "number of xrts checked '%d'\n",
         header->total_num
     );
     if (header->total_num > MAX_XRT_NUM) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_check_access_rights_table: ");
-        microkit_dbg_puts(" number of access rights given is too big '");
+        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
+        microkit_dbg_puts(" number of xrts given is too big '");
         microkit_dbg_put32(header->total_num);
-        microkit_internal_crash(-1);
+        return -1;
     }    
     if (header->serialised_offset < sizeof(trustedlo_xrtreq_header_t)) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_check_access_rights_table: ");
-        microkit_dbg_puts(" invalid acrtreq entry list offset given\n");
-        microkit_internal_crash(-1);
+        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
+        microkit_dbg_puts(" invalid xrt entry list offset given\n");
+        return -1;
     }
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trustedlo_xrt_util_check_access_rights_table: succeeded\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trustedlo_xrt_util_parse_xrt_header: succeeded\n");
+    return seL4_NoError;
 }
 

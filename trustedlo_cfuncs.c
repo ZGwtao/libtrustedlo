@@ -13,7 +13,7 @@ mktxlo_parse_requst(void *xrt_req_header)
         return -1;
     }
 
-    trustedlo_xrt_util_check_access_rights_table(xrt_req_header);
+    TRY_OR_RETURN_ERROR(trustedlo_xrt_util_parse_xrt_header(xrt_req_header));
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 
@@ -22,15 +22,15 @@ mktxlo_parse_requst(void *xrt_req_header)
 
 
 static inline seL4_Error
-mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *mdinfo, void *xrt_req_header)
+mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *txlo_info, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(trustedlo_xrt_util_populate_all_rights(context, mdinfo, xrt_req_header));
+    TRY_OR_RETURN_ERROR(trustedlo_xrt_util_populate_xrts(context, txlo_info, xrt_req_header));
     return seL4_NoError;
 }
 
 
 static inline void
-mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
     /* set the flag to restore cap during restart */
     if (context->restore == false) {
@@ -39,31 +39,31 @@ mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *mdinfo)
         return;
     }
     /* clean up all XRT_STATE_USED caps */
-    trustedlo_xrt_util_revoke_notifications(context, mdinfo);
-    trustedlo_xrt_util_revoke_ppcs(context, mdinfo);
-    trustedlo_xrt_util_revoke_irqs(context, mdinfo);
+    trustedlo_xrt_util_revoke_notifications(context, txlo_info);
+    trustedlo_xrt_util_revoke_ppcs(context, txlo_info);
+    trustedlo_xrt_util_revoke_irqs(context, txlo_info);
     trustedlo_xrt_util_revoke_mappings(context);
     /* once finished, all USED are UNSET */
 }
 
 static inline void
-mktxlo_restore_caps(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
     /* for XRT_STATE_KEEP, keep them as USED */
     /* for XRT_STATE_ALLOWED, create them from backup CNode */
     /* for XRT_STATE_UNSET, do nothing */
     /* and there should not be any other states (all USED are UNSET from remove_caps) */
-    trustedlo_xrt_util_restore_notifications(context, mdinfo);
-    trustedlo_xrt_util_restore_ppcs(context, mdinfo);
-    trustedlo_xrt_util_restore_irqs(context, mdinfo);
+    trustedlo_xrt_util_restore_notifications(context, txlo_info);
+    trustedlo_xrt_util_restore_ppcs(context, txlo_info);
+    trustedlo_xrt_util_restore_irqs(context, txlo_info);
     trustedlo_xrt_util_restore_mappings(context);
 }
 
 
 static inline seL4_Error
-mktxlo_context_activate(void *mdinfo, trustedlo_ctxt_t *context)
+mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
 {
-    txlo_info_t *md = (txlo_info_t *)mdinfo;
+    txlo_info_t *md = (txlo_info_t *)txlo_info;
     if (!md->init) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is not prepared...\n");
         return -1;
@@ -141,20 +141,20 @@ mktxlo_payload_load(void *base)
 
 
 static inline seL4_Error
-mktxlo_enforce_pola(trustedlo_ctxt_t *context, void *mdinfo)
+mktxlo_enforce_pola(trustedlo_ctxt_t *context, void *txlo_info)
 {
-    mktxlo_revoke_caps(context, mdinfo);
+    mktxlo_revoke_caps(context, txlo_info);
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    mktxlo_restore_caps(context, mdinfo);
+    mktxlo_restore_caps(context, txlo_info);
 
     return seL4_NoError;
 }
 
 
 static inline seL4_Error
-mktxlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
+mktxlo_context_refresh(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
     TRY_OR_RETURN_ERROR(mktxlo_parse_requst(xrt_req_header));
 
@@ -164,9 +164,9 @@ mktxlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_he
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    TRY_OR_RETURN_ERROR(mktxlo_populate_req2ctxt(context, mdinfo, xrt_req_header));
+    TRY_OR_RETURN_ERROR(mktxlo_populate_req2ctxt(context, txlo_info, xrt_req_header));
 
-    TRY_OR_RETURN_ERROR(mktxlo_enforce_pola(context, mdinfo));
+    TRY_OR_RETURN_ERROR(mktxlo_enforce_pola(context, txlo_info));
 
     trustedlo_cap_util_pd_deprivilege();
 
@@ -174,10 +174,10 @@ mktxlo_context_refresh(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_he
 }
 
 static inline seL4_Error
-mktxlo_context_switch(void *mdinfo, trustedlo_ctxt_t *context, void *xrt_req_header)
+mktxlo_context_switch(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(mktxlo_context_activate(mdinfo, context));
-    TRY_OR_RETURN_ERROR(mktxlo_context_refresh(mdinfo, context, xrt_req_header));
+    TRY_OR_RETURN_ERROR(mktxlo_context_activate(txlo_info, context));
+    TRY_OR_RETURN_ERROR(mktxlo_context_refresh(txlo_info, context, xrt_req_header));
 
     return seL4_NoError;
 }
@@ -278,7 +278,7 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
 
 void mktxlo_self_load_entry(void)
 {
-    void *mdinfo = (void *)tsldr_vm_layout.loader_metadata.base;
+    void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
     void *xrt_req_header = (void *)tsldr_vm_layout.ossvc_metadata.base;
     trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
 
@@ -287,7 +287,7 @@ void mktxlo_self_load_entry(void)
 
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(client_elf));
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampoline_elf));
-    TRY_OR_RETURN_VOID(mktxlo_context_switch(mdinfo, context, xrt_req_header));
+    TRY_OR_RETURN_VOID(mktxlo_context_switch(txlo_info, context, xrt_req_header));
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
@@ -299,7 +299,7 @@ void mktxlo_self_load_entry(void)
     client_args_t *frame_cargs = (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
 
     TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(args));
-    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(mdinfo, context, frame_cargs));
+    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, frame_cargs));
 
     TSLDR_DBG_PRINT(
         LIB_NAME_MACRO
