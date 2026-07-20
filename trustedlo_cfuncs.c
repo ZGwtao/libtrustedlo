@@ -184,8 +184,9 @@ mktxlo_context_switch(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_
 
 
 static inline seL4_Error
-mktxlo_fill_tramp_args(void *frame_targs)
+mktxlo_fill_tramp_args(void *context, void *frame_targs)
 {
+    const trustedlo_ctxt_t *ctxt = context;
     trampoline_args_t *args = (trampoline_args_t *)(frame_targs);
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(tsldr_vm_layout.container_image.base);
@@ -234,8 +235,8 @@ mktxlo_fill_tramp_args(void *frame_targs)
         .container_stack_top = TSLDR_VM_CONTAINER_STACK_END,
         .client_elf = (uintptr_t)ehdr->e_entry,
         .ipc_buffer = tsldr_vm_layout.ipc_buffer.base,
-        .monitor_channel = 74 + 15,
-        .monitor_pcmcall_id = 20,
+        .monitor_channel = ctxt->txlo_monitor_init_field.channel,
+        .monitor_pcmcall_id = ctxt->txlo_monitor_init_field.call_id,
     };
 
     return seL4_NoError;
@@ -298,7 +299,7 @@ void mktxlo_self_load_entry(void)
     trampoline_args_t *args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
     client_args_t *frame_cargs = (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
 
-    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(args));
+    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, args));
     TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, frame_cargs));
 
     TSLDR_DBG_PRINT(

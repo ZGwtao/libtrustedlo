@@ -67,6 +67,7 @@ typedef struct {
 } trustedlo_xrtreq_header_t;
 
 
+
 typedef uint8_t xrt_state_t;
 enum {
     XRT_STATE_UNSET = 0,
@@ -93,11 +94,22 @@ typedef struct xrt_entry {
     seL4_Word data;
 } xrt_entry_t;
 
+
+/* aligns with microkit_channel, which is unsigned int */
+typedef uint32_t txlo_channel;
+typedef uint32_t txlo_monitor_call;
+
 typedef struct trustedlo_ctxt {
     size_t child_id;
 
-    bool restore;
     bool init;
+    bool restore;
+
+    /* these two fields are initialised by monitor */
+    struct {
+        txlo_channel channel;
+        txlo_monitor_call call_id;
+    } txlo_monitor_init_field;
 
     xrt_state_t allowed_notifications[MICROKIT_MAX_CHANNELS];
     xrt_state_t allowed_ppcs[MICROKIT_MAX_CHANNELS];
