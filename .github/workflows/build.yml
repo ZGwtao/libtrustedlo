@@ -1,0 +1,219 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TARGET: aarch64
+  CPU: cortex-a53
+  MICROKIT_BOARD: qemu_virt_aarch64
+  MICROKIT_CONFIG: debug
+
+  MICROKIT_VERSION: 2.1.0
+  MICROKIT_REVISION: e882afaec8438068d1d965be9c7f2d31c7f2cf8a
+  SEL4_REVISION: 8c2c2f59913c0ab94418b81f329c84a27a06c8df
+  RUST_VERSION: "1.94.0"
+  ARM_GNU_TOOLCHAIN_VERSION: 12.2.rel1
+  ARM_GNU_TOOLCHAIN_DIR: arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-elf
+  ARM_GNU_TOOLCHAIN_URL: https://developer.arm.com/-/media/Files/downloads/gnu/12.2.rel1/binrel/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-elf.tar.xz
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout libtrustedlo
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential ca-certificates \
+            clang cmake curl git lld llvm \
+            make ninja-build xz-utils \
+            device-tree-compiler libxml2-utils \
+            python3.12 python3.12-venv python3-pip \
+            qemu-system-arm qemu-system-misc qemu-system-x86 \
+            gcc-riscv64-unknown-elf \
+            gcc-x86-64-linux-gnu
+
+      - name: Install Rust toolchain
+        run: |
+          curl \
+            --proto '=https' \
+            --tlsv1.2 \
+            --fail \
+            --silent \
+            --show-error \
+            https://sh.rustup.rs |
+            sh -s -- \
+              -y \
+              --profile minimal \
+              --default-toolchain "${RUST_VERSION}"
+          export PATH="${HOME}/.cargo/bin:${PATH}"
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+
+          rustup default "${RUST_VERSION}" \
+          && rustup component add \
+              rust-src \
+              --toolchain "${RUST_VERSION}" \
+          && rustup target add \
+              x86_64-unknown-linux-musl \
+              aarch64-unknown-linux-musl
+
+      - name: Validate Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "${RUST_VERSION}"
+
+      - name: Install AArch64 bare-metal GNU toolchain
+        run: |
+          set -euo pipefail
+
+          toolchains_dir="${RUNNER_TEMP}/toolchains"
+          archive="${RUNNER_TEMP}/arm-gnu-toolchain.tar.xz"
+          toolchain_root="${toolchains_dir}/${ARM_GNU_TOOLCHAIN_DIR}"
+          mkdir -p "${toolchains_dir}"
+
+          curl \
+            --fail \
+            --location \
+            --show-error \
+            "${ARM_GNU_TOOLCHAIN_URL}" \
+            --output "${archive}"
+
+          tar \
+            --extract \
+            --file="${archive}" \
+            --directory="${toolchains_dir}"
+
+          rm -f "${archive}"
+          test -x "${toolchain_root}/bin/aarch64-none-elf-gcc"
+
+          echo "ARM_GNU_TOOLCHAIN_ROOT=${toolchain_root}" >> "${GITHUB_ENV}"
+          echo "${toolchain_root}/bin" >> "${GITHUB_PATH}"
+
+      - name: Create Python environment
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/microkit-venv"
+          "${RUNNER_TEMP}/microkit-venv/bin/pip" install \
+            --upgrade pip setuptools wheel
+
+      - name: Cache Microkit SDK
+        id: cache-microkit
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/microkit-install
+          key: >-
+            microkit-sdk-v1-${{ runner.os }}-${{ runner.arch }}-
+            ${{ env.MICROKIT_REVISION }}-${{ env.SEL4_REVISION }}-
+            ${{ env.MICROKIT_BOARD }}
+
+      - name: Fetch Microkit and seL4
+        if: steps.cache-microkit.outputs.cache-hit != 'true'
+        run: |
+          git clone \
+            --filter=blob:none \
+            https://github.com/ZGwtao/microkit.git \
+            "${RUNNER_TEMP}/microkit"
+
+          git -C "${RUNNER_TEMP}/microkit" checkout \
+            --detach "${MICROKIT_REVISION}"
+
+          git clone \
+            --filter=blob:none \
+            https://github.com/ZGwtao/seL4-kernel.git \
+            "${RUNNER_TEMP}/seL4"
+
+          git -C "${RUNNER_TEMP}/seL4" checkout \
+            --detach "${SEL4_REVISION}"
+
+      - name: Install Microkit Python dependencies
+        if: steps.cache-microkit.outputs.cache-hit != 'true'
+        run: |
+          "${RUNNER_TEMP}/microkit-venv/bin/pip" install \
+            --requirement "${RUNNER_TEMP}/microkit/requirements.txt"
+
+      - name: Build Microkit SDK
+        if: steps.cache-microkit.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}/microkit
+        run: |
+          "${RUNNER_TEMP}/microkit-venv/bin/python" \
+            build_sdk.py \
+            --sel4="${RUNNER_TEMP}/seL4" \
+            --boards="${MICROKIT_BOARD}" \
+            --version="${MICROKIT_VERSION}" \
+            --skip-doc \
+            --skip-tar
+
+          mkdir -p "${RUNNER_TEMP}/microkit-install"
+
+          sdk_dir="$(
+            find release \
+              -maxdepth 1 \
+              -type d \
+              -name 'microkit-sdk-*' \
+              -print \
+              -quit
+          )"
+
+          test -n "${sdk_dir}"
+          cp -a "${sdk_dir}/." "${RUNNER_TEMP}/microkit-install/"
+
+      - name: Validate toolchain and SDK
+        run: |
+          clang --version
+          ld.lld --version
+          llvm-ar --version
+          rustc --version
+          cargo --version
+          python3 --version
+
+          test -x "${RUNNER_TEMP}/microkit-install/bin/microkit"
+          test -d \
+            "${RUNNER_TEMP}/microkit-install/board/${MICROKIT_BOARD}/${MICROKIT_CONFIG}/include"
+          test -d \
+            "${RUNNER_TEMP}/microkit-install/board/${MICROKIT_BOARD}/${MICROKIT_CONFIG}/lib"
+
+      - name: Build libtrustedlo
+        run: |
+          mkdir -p build
+
+          make \
+            --directory=build \
+            --file="${GITHUB_WORKSPACE}/Makefile" \
+            LIBTRUSTEDLO_PATH="${GITHUB_WORKSPACE}" \
+            TARGET="${TARGET}" \
+            CPU="${CPU}" \
+            MICROKIT_SDK="${RUNNER_TEMP}/microkit-install" \
+            MICROKIT_BOARD="${MICROKIT_BOARD}" \
+            MICROKIT_CONFIG="${MICROKIT_CONFIG}" \
+            LLVM=1 \
+            BUILD_DIR=.
+
+      - name: Inspect build outputs
+        run: |
+          find build/libtrustedlo \
+            -maxdepth 2 \
+            -type f \
+            -print
+
+          test -f build/libtrustedlo/libtrustedlo.a
+          test -f build/libtrustedlo/trampoline.elf
+          test -f build/libtrustedlo/loader.elf
+
+          file \
+            build/libtrustedlo/libtrustedlo.a \
+            build/libtrustedlo/trampoline.elf \
+            build/libtrustedlo/loader.elf
+
