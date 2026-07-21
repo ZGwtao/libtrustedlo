@@ -281,38 +281,42 @@ void mktxlo_self_load_entry(void)
 {
     void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
     void *xrt_req_header = (void *)tsldr_vm_layout.ossvc_metadata.base;
+
     trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
 
     uintptr_t client_elf = tsldr_vm_layout.container_image.base;
-    uintptr_t trampoline_elf = tsldr_vm_layout.trampoline_image.base;
+    uintptr_t trampo_elf = tsldr_vm_layout.trampoline_image.base;
+
+    trampoline_args_t *trampo_args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
+    client_args_t *client_args = (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
+
 
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(client_elf));
-    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampoline_elf));
+    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampo_elf));
+
     TRY_OR_RETURN_VOID(mktxlo_context_switch(txlo_info, context, xrt_req_header));
 
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
-    Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
+    TRY_OR_RETURN_VOID(mktxlo_payload_load((Elf64_Ehdr *)client_elf));
+    TRY_OR_RETURN_VOID(mktxlo_payload_load((Elf64_Ehdr *)trampo_elf));
 
-    TRY_OR_RETURN_VOID(mktxlo_payload_load(ehdr));
-    TRY_OR_RETURN_VOID(mktxlo_payload_load(trampoline_ehdr));
+    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, trampo_args));
+    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, client_args));
 
-    trampoline_args_t *args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
-    client_args_t *frame_cargs = (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
+    /* ---- jump to trampoline's entry ---- */
 
-    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, args));
-    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, frame_cargs));
+    uintptr_t tramp_entry = ((Elf64_Ehdr *)trampo_elf)->e_entry;
 
     TSLDR_DBG_PRINT(
         LIB_NAME_MACRO
         "Switch to the trampoline's code to execute: "
         "stack: %x, entry: %x\n",
         (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
-        (void *)(uintptr_t)trampoline_ehdr->e_entry
+        (void *)tramp_entry
     );
 
     mktxlo_jumpto(
         (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
-        (entry_fn_t)(uintptr_t)trampoline_ehdr->e_entry,
-        args
+        (entry_fn_t)tramp_entry,
+        trampo_args
     );
 }
