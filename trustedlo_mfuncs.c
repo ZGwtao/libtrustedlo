@@ -4,29 +4,6 @@
 #include <libtrustedlo.h>
 
 
-void mktxlo_prepare_txlo_info(txlo_monitor_t *monitor, size_t id, void *txlo_info)
-{
-    if (!monitor || !txlo_info) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid txlo_info database pointer given\n");
-        return;
-    }
-    if (id >= MAX_DYN_PD_PER_MONITOR) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
-        return;
-    }
-    txlo_info_t *dest = (txlo_info_t *)txlo_info;
-    txlo_info_t *src = &monitor->tplet_pd_txlo_info_list[id];
-
-    tsldr_miscutil_memset(dest, 0, sizeof(txlo_info_t));
-    tsldr_miscutil_memcpy(dest, src, sizeof(txlo_info_t));
-
-    dest->init = true;
-
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "child_loc: %d\n", id);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "child_id: %d\n", dest->child_id);
-}
-
-
 void mktxlo_privilege_template_pd(seL4_Word cid)
 {
     trustedlo_cap_util_pd_privilege(cid);

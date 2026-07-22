@@ -99,14 +99,13 @@ typedef struct xrt_entry {
 typedef uint32_t txlo_channel;
 typedef uint32_t txlo_monitor_call;
 
+#define TXLO_CTXT_MAX_SWITCH_CNT (65536)
+
 typedef struct trustedlo_ctxt {
-    size_t child_id;
-
-    bool init;
-    bool restore;
-
     /* these two fields are initialised by monitor */
     struct {
+        uint32_t child_id;
+        uint64_t switch_count;
         txlo_channel channel;
         txlo_monitor_call call_id;
     } txlo_monitor_init_field;
@@ -215,6 +214,5 @@ typedef void (*entry_fn_t)(const trampoline_args_t *);
 
 void mktxlo_self_load_entry(void);
 
-void mktxlo_prepare_txlo_info(txlo_monitor_t *monitor, size_t id, void *txlo_info);
 void mktxlo_prepare_xrt_req_list(void *base, const trustedlo_xrtreq_t *req);
 void mktxlo_privilege_template_pd(seL4_Word cid);

@@ -32,10 +32,13 @@ mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *txlo_info, void *xrt_r
 static inline void
 mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
-    /* set the flag to restore cap during restart */
-    if (context->restore == false) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "mktxlo_revoke_caps: need to restore access rights in next round\n");
-        context->restore = true;
+    if (context->txlo_monitor_init_field.switch_count == 0) {
+        TSLDR_DBG_PRINT(
+            LIB_NAME_MACRO
+            "mktxlo_revoke_caps:\
+             no need to restore anything at the first-time execution\n"
+        );
+        context->txlo_monitor_init_field.switch_count++;
         return;
     }
     /* clean up all XRT_STATE_USED caps */
@@ -75,11 +78,6 @@ mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
     if (context == NULL) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "Try to init null context\n");
         return -1;
-    }
-    if (context->init != true) {
-        context->child_id = md->child_id;
-        context->init = true;
-        context->restore = false;
     }
 
     /* the only thing that needs to be renew for now. */
