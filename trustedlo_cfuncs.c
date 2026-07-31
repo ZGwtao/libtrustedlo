@@ -209,10 +209,10 @@ mktxlo_fill_tramp_args(void *context, void *frame_targs)
                 (uintptr_t)
                     tsldr_vm_layout.loader_metadata.size,
             },
-            [REGION_OSSVC_METADATA] = {
-                tsldr_vm_layout.ossvc_metadata.base,
+            [REGION_TXLO_XRT_REQ] = {
+                tsldr_vm_layout.txlo_xrt_req.base,
                 (uintptr_t)
-                    tsldr_vm_layout.ossvc_metadata.size,
+                    tsldr_vm_layout.txlo_xrt_req.size,
             },
             [REGION_CONTAINER_STACK] = {
                 tsldr_vm_layout.container_stack.base,
@@ -278,7 +278,7 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
 void mktxlo_self_load_entry(void)
 {
     void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
-    void *xrt_req_header = (void *)tsldr_vm_layout.ossvc_metadata.base;
+    void *xrt_req_header = (void *)tsldr_vm_layout.txlo_xrt_req.base;
 
     trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
 
