@@ -49,14 +49,34 @@ void puthex64(uint64_t val)
     puts(buffer);
 }
 
-void putdecimal(uint8_t val)
+static void putuint(uint64_t val, unsigned base, bool upper)
 {
-    if (0 <= val && val <= 9) {
-        putc('0' + val);
-    } else {
-        /* fallback, shouldn't really happen */
-        puthex32(val);
+    char buf[32];
+    unsigned i = sizeof(buf);
+    const char *digits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+
+    do {
+        buf[--i] = digits[val % base];
+        val /= base;
+    } while (val);
+
+    while (i < sizeof(buf)) {
+        microkit_dbg_putc(buf[i++]);
     }
+}
+
+static void putint(int64_t val)
+{
+    uint64_t u;
+
+    if (val < 0) {
+        microkit_dbg_putc('-');
+        u = -(uint64_t)val;
+    } else {
+        u = val;
+    }
+
+    putuint(u, 10, false);
 }
 
 void tsldr_miscutil_dbg_print(const char *format, ...)
@@ -64,59 +84,92 @@ void tsldr_miscutil_dbg_print(const char *format, ...)
     va_list args;
     va_start(args, format);
 
-    const char *ptr = format;
+    while (*format) {
+        if (*format != '%') {
+            microkit_dbg_putc(*format++);
+            continue;
+        }
 
-    while (*ptr != '\0') {
-        if (*ptr == '%') {
-            ptr++; // Move past '%'
+        format++;
 
-            switch (*ptr) {
-                case 's': {
-                    // String
-                    const char *str = va_arg(args, const char *);
-                    if (str != 0) {
-                        microkit_dbg_puts(str);
-                    } else {
-                        microkit_dbg_puts("(null)");
-                    }
-                    break;
-                }
-                case 'd': {
-                    // Decimal
-                    uint64_t val = va_arg(args, uint64_t);
-                    putdecimal(val);
-                    break;
-                }
-                case 'x': {
-                    // Hexadecimal
-                    uint64_t val = va_arg(args, uint64_t);
-                    puthex64(val);
-                    break;
-                }
-                case 'c': {
-                    // Character
-                    int c = va_arg(args, int); // char is promoted to int
-                    microkit_dbg_putc((char)c);
-                    break;
-                }
-                case '%': {
-                    // Literal '%'
-                    microkit_dbg_putc('%');
-                    break;
-                }
-                default: {
-                    // Unsupported format specifier, print it literally
-                    microkit_dbg_putc('%');
-                    microkit_dbg_putc(*ptr);
-                    break;
+        int precision = -1;
+        if (*format == '.') {
+            format++;
+            precision = 0;
+
+            if (*format == '*') {
+                precision = va_arg(args, int);
+                format++;
+            } else {
+                while (*format >= '0' && *format <= '9') {
+                    precision = precision * 10 + (*format++ - '0');
                 }
             }
-            ptr++; // Move past format specifier
-        } else {
-            // Regular character
-            microkit_dbg_putc(*ptr);
-            ptr++;
         }
+
+        unsigned length = 0;
+        if (*format == 'l') {
+            length = 1;
+            if (*++format == 'l') {
+                length = 2;
+                format++;
+            }
+        }
+
+        switch (*format) {
+        case 'd':
+        case 'i':
+            if (length == 2) putint(va_arg(args, long long));
+            else if (length == 1) putint(va_arg(args, long));
+            else putint(va_arg(args, int));
+            break;
+
+        case 'u':
+            if (length == 2) putuint(va_arg(args, unsigned long long), 10, false);
+            else if (length == 1) putuint(va_arg(args, unsigned long), 10, false);
+            else putuint(va_arg(args, unsigned int), 10, false);
+            break;
+
+        case 'x':
+        case 'X': {
+            bool upper = *format == 'X';
+            if (length == 2) putuint(va_arg(args, unsigned long long), 16, upper);
+            else if (length == 1) putuint(va_arg(args, unsigned long), 16, upper);
+            else putuint(va_arg(args, unsigned int), 16, upper);
+            break;
+        }
+
+        case 'p':
+            microkit_dbg_puts("0x");
+            putuint((uintptr_t)va_arg(args, void *), 16, false);
+            break;
+
+        case 's': {
+            const char *s = va_arg(args, const char *);
+            if (!s) s = "(null)";
+            if (precision < 0) {
+                microkit_dbg_puts(s);
+            } else {
+                while (*s && precision-- > 0) microkit_dbg_putc(*s++);
+            }
+            break;
+        }
+
+        case 'c':
+            microkit_dbg_putc((char)va_arg(args, int));
+            break;
+
+        case '%':
+            microkit_dbg_putc('%');
+            break;
+
+        default:
+            microkit_dbg_putc('%');
+            if (*format) microkit_dbg_putc(*format);
+            break;
+        }
+
+        if (*format) format++;
     }
 
     va_end(args);
