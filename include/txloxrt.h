@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -5,7 +10,6 @@
 #include <microkit.h>
 
 #define CONFIG_BATCHING_MAP (1)
-
 
 bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *txlo_info, seL4_Word *cookie);
 bool trustedlo_xrt_util_check_notification(seL4_Word ntfn, void *txlo_info);
@@ -17,7 +21,6 @@ void trustedlo_xrt_util_restore_notifications(void *data, void *txlo_info);
 void trustedlo_xrt_util_restore_ppcs(void *data, void *txlo_info);
 void trustedlo_xrt_util_restore_irqs(void *data, void *txlo_info);
 void trustedlo_xrt_util_restore_mappings(void *data);
-
 
 void trustedlo_xrt_util_revoke_notifications(void *data, void *txlo_info);
 void trustedlo_xrt_util_revoke_ppcs(void *data, void *txlo_info);

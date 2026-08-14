@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 UNSW
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 set -euo pipefail
 
 : "${MICROKIT_SDK:?MICROKIT_SDK must be set}"

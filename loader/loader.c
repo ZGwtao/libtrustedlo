@@ -1,4 +1,9 @@
-#include <tsldr_vm_layout.h>
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
 #include <libtrustedlo.h>
 
 void loader_entry(void)

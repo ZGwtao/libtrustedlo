@@ -1,19 +1,22 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
 
 #include <txloxrt.h>
 #include <txlocap.h>
 #include <libtrustedlo.h>
-
 
 void mktxlo_privilege_template_pd(seL4_Word cid)
 {
     trustedlo_cap_util_pd_privilege(cid);
 }
 
-
-void mktxlo_prepare_xrt_req_list(
-    void *xrt_entry_list, /* dest */
-    const trustedlo_xrtreq_t *xrt_req_list /* src */
-) {
+void mktxlo_prepare_xrt_req_list(void *xrt_entry_list,                  /* dest */
+                                 const trustedlo_xrtreq_t *xrt_req_list /* src */
+)
+{
     /*
      * This function writes serialised access rights
      *                   into 'dest' at monitor side.

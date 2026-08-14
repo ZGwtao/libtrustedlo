@@ -1,8 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
 
 #include <txloxrt.h>
 #include <txlocap.h>
 #include <libtrustedlo.h>
 #include <tsldr_vm_layout.h>
+#include <memory.h>
 
 #define DLG_MAX_DELEGATORS 16
 #define DLG_HEADER_SIZE 16
@@ -31,33 +37,7 @@ typedef struct {
     const dlg_delegator_t *delegators[DLG_MAX_DELEGATORS];
 } dlg_header_t;
 
-static inline uint16_t dlg_read_u16(const uint8_t *p)
-{
-    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
-}
-
-static inline uint32_t dlg_read_u32(const uint8_t *p)
-{
-    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
-}
-
-static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator, uint16_t index)
-{
-    if (index >= delegator->resource_count) return NULL;
-    return (const dlg_resource_t *)((const uint8_t *)delegator + DLG_DELEGATOR_HEADER_SIZE + index * DLG_RESOURCE_SIZE);
-}
-
-static inline const dlg_delegator_t *dlg_find_delegator(const dlg_header_t *dlg, uint64_t pd_id)
-{
-    for (uint32_t i = 0; i < dlg->delegator_count; i++) {
-        if (dlg->delegators[i]->pd_id == pd_id) return dlg->delegators[i];
-    }
-    return NULL;
-}
-
-
-static inline seL4_Error
-mktxlo_parse_requst(void *xrt_req_header)
+static inline seL4_Error mktxlo_parse_requst(void *xrt_req_header)
 {
     if (!xrt_req_header) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid xrt_req_header given\n");
@@ -71,7 +51,6 @@ mktxlo_parse_requst(void *xrt_req_header)
     return seL4_NoError;
 }
 
-
 static inline seL4_Error
 mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *txlo_info, void *xrt_req_header)
 {
@@ -79,16 +58,11 @@ mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *txlo_info, void *xrt_r
     return seL4_NoError;
 }
 
-
-static inline void
-mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
+static inline void mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
     if (context->txlo_monitor_init_field.switch_count == 0) {
-        TSLDR_DBG_PRINT(
-            LIB_NAME_MACRO
-            "mktxlo_revoke_caps:\
-             no need to restore anything at the first-time execution\n"
-        );
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "mktxlo_revoke_caps:\
+             no need to restore anything at the first-time execution\n");
         context->txlo_monitor_init_field.switch_count++;
         return;
     }
@@ -100,8 +74,7 @@ mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
     /* once finished, all USED are UNSET */
 }
 
-static inline void
-mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_info)
+static inline void mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
     /* for XRT_STATE_KEEP, keep them as USED */
     /* for XRT_STATE_ALLOWED, create them from backup CNode */
@@ -113,9 +86,7 @@ mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_info)
     trustedlo_xrt_util_restore_mappings(context);
 }
 
-
-static inline seL4_Error
-mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
+static inline seL4_Error mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
 {
     dlg_delegator_t *info = (dlg_delegator_t *)txlo_info;
 
@@ -133,39 +104,32 @@ mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
     return seL4_NoError;
 }
 
-
 #if defined(CONFIG_ARCH_X86_64)
 __attribute__((naked, noreturn)) /* don't let your compiler fuck around with the args */
 void mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
-    __asm__ volatile(
-        "mov %rdi, %rsp\n\t"
-        "mov %rdx, %rdi\n\t"
-        "jmp *%rsi\n\t"
-    );
+    __asm__ volatile("mov %rdi, %rsp\n\t"
+                     "mov %rdx, %rdi\n\t"
+                     "jmp *%rsi\n\t");
 }
 #elif defined(CONFIG_ARCH_AARCH64)
-__attribute__((naked, noreturn))
-void mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
+__attribute__((naked, noreturn)) void
+mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 {
-    __asm__ volatile(
-        "mov sp, x0\n\t"
-        "mov x0, x2\n\t"
-        "br x1\n\t"
-    );
+    __asm__ volatile("mov sp, x0\n\t"
+                     "mov x0, x2\n\t"
+                     "br x1\n\t");
 }
 #else
 #error "Unsupported architecture for 'mktxlo_jumpto'"
 #endif
 
-
-static inline seL4_Error
-mktxlo_payload_check_integrity(uintptr_t elf)
+static inline seL4_Error mktxlo_payload_check_integrity(uintptr_t elf)
 {
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "Check ELF integrity\n");
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
     /* check elf integrity */
-    if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
+    if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char *)ELFMAG, SELFMAG) != 0) {
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF magic number mismatch\n");
         return -1;
     }
@@ -173,31 +137,25 @@ mktxlo_payload_check_integrity(uintptr_t elf)
     return seL4_NoError;
 }
 
-
-static inline seL4_Error
-mktxlo_payload_load(void *base)
+static inline seL4_Error mktxlo_payload_load(void *base)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)base;
-    tsldr_miscutil_load_elf(
-        (void *)(ehdr->e_entry),
-        ehdr
-    );
+    tsldr_miscutil_load_elf((void *)(ehdr->e_entry), ehdr);
     return seL4_NoError;
 }
 
-
-static inline seL4_Error
-mktxlo_enforce_pola(trustedlo_ctxt_t *context, void *txlo_info)
+static inline seL4_Error mktxlo_enforce_pola(trustedlo_ctxt_t *context, void *txlo_info)
 {
     mktxlo_revoke_caps(context, txlo_info);
 
-    /* if this is not a first-time execution, restore the access rights distribution to the default state */
-    /* once the PD is restored to a default state, we can populate the rights with the information provided above */
+    /* if this is not a first-time execution, restore the access rights distribution to the default
+     * state */
+    /* once the PD is restored to a default state, we can populate the rights with the information
+     * provided above */
     mktxlo_restore_caps(context, txlo_info);
 
     return seL4_NoError;
 }
-
 
 static inline seL4_Error
 mktxlo_context_refresh(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_header)
@@ -228,56 +186,57 @@ mktxlo_context_switch(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_
     return seL4_NoError;
 }
 
-
-static inline seL4_Error
-mktxlo_fill_tramp_args(void *context, void *frame_targs)
+static inline seL4_Error mktxlo_fill_tramp_args(void *context, void *frame_targs)
 {
     const trustedlo_ctxt_t *ctxt = context;
     trampoline_args_t *args = (trampoline_args_t *)(frame_targs);
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(tsldr_vm_layout.container_image.base);
 
-    *args = (trampoline_args_t) {
-        .regions = {
+    *args = (trampoline_args_t){
+        .regions =
+            {
 #if defined(CONFIG_ARCH_X86_64)
-            [REGION_TSLDR_STACK] = {
-                tsldr_vm_layout.microkit_x86_stack.base,
-                (uintptr_t)TSLDR_VM_PAGE_SIZE,
-            },
+                [REGION_TSLDR_STACK] =
+                    {
+                        tsldr_vm_layout.microkit_x86_stack.base,
+                        (uintptr_t)TSLDR_VM_PAGE_SIZE,
+                    },
 #elif defined(CONFIG_ARCH_AARCH64)
-            [REGION_TSLDR_STACK] = {
-                tsldr_vm_layout.microkit_aarch64_stack.base,
-                (uintptr_t)TSLDR_VM_PAGE_SIZE,
-            },
+                [REGION_TSLDR_STACK] =
+                    {
+                        tsldr_vm_layout.microkit_aarch64_stack.base,
+                        (uintptr_t)TSLDR_VM_PAGE_SIZE,
+                    },
 #else
 #error "Unsupported architecture"
 #endif
-            [REGION_TSLDR_METADATA] = {
-                tsldr_vm_layout.loader_metadata.base,
-                (uintptr_t)
-                    tsldr_vm_layout.loader_metadata.size,
+                [REGION_TSLDR_METADATA] =
+                    {
+                        tsldr_vm_layout.loader_metadata.base,
+                        (uintptr_t)tsldr_vm_layout.loader_metadata.size,
+                    },
+                [REGION_TXLO_XRT_REQ] =
+                    {
+                        tsldr_vm_layout.txlo_xrt_req.base,
+                        (uintptr_t)tsldr_vm_layout.txlo_xrt_req.size,
+                    },
+                [REGION_CONTAINER_STACK] =
+                    {
+                        tsldr_vm_layout.container_stack.base,
+                        (uintptr_t)tsldr_vm_layout.container_stack.size,
+                    },
+                [REGION_TSLDR_CONTEXT] =
+                    {
+                        tsldr_vm_layout.loader_context.base,
+                        (uintptr_t)tsldr_vm_layout.loader_context.size,
+                    },
+                [REGION_TSLDR_PROGRAM] =
+                    {
+                        tsldr_vm_layout.loader_program.base,
+                        (uintptr_t)tsldr_vm_layout.loader_program.size,
+                    },
             },
-            [REGION_TXLO_XRT_REQ] = {
-                tsldr_vm_layout.txlo_xrt_req.base,
-                (uintptr_t)
-                    tsldr_vm_layout.txlo_xrt_req.size,
-            },
-            [REGION_CONTAINER_STACK] = {
-                tsldr_vm_layout.container_stack.base,
-                (uintptr_t)
-                    tsldr_vm_layout.container_stack.size,
-            },
-            [REGION_TSLDR_CONTEXT] = {
-                tsldr_vm_layout.loader_context.base,
-                (uintptr_t)
-                    tsldr_vm_layout.loader_context.size,
-            },
-            [REGION_TSLDR_PROGRAM] = {
-                tsldr_vm_layout.loader_program.base,
-                (uintptr_t)
-                    tsldr_vm_layout.loader_program.size,
-            },
-        },
         .container_stack_top = TSLDR_VM_CONTAINER_STACK_END,
         .client_elf = (uintptr_t)ehdr->e_entry,
         .ipc_buffer = tsldr_vm_layout.ipc_buffer.base,
@@ -287,7 +246,6 @@ mktxlo_fill_tramp_args(void *context, void *frame_targs)
 
     return seL4_NoError;
 }
-
 
 static inline seL4_Error
 mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context, void *frame_cargs)
@@ -304,15 +262,15 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
         }
     }
 
-    seL4_Word bitmap_notifications = 
-        (info->microkit_notifications & (~info->bitmap_opt_notifications)) | bitmap_opt_notifications;
+    seL4_Word bitmap_notifications =
+        (info->microkit_notifications & (~info->bitmap_opt_notifications)) |
+        bitmap_opt_notifications;
 
-    seL4_Word bitmap_ppcs = 
-        (info->microkit_pps & (~info->bitmap_opt_ppcs)) | bitmap_opt_ppcs;
+    seL4_Word bitmap_ppcs = (info->microkit_pps & (~info->bitmap_opt_ppcs)) | bitmap_opt_ppcs;
 
     client_args_t *cargs = (client_args_t *)(frame_cargs);
 
-    *cargs = (client_args_t) {
+    *cargs = (client_args_t){
         .bitmap_notifications = bitmap_notifications,
         .bitmap_ppcs = bitmap_ppcs,
         .bitmap_irqs = info->microkit_irqs,
@@ -322,20 +280,19 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
     return seL4_NoError;
 }
 
-
 void mktxlo_self_load_entry(void)
 {
     void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
     void *xrt_req_header = (void *)tsldr_vm_layout.txlo_xrt_req.base;
 
-    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *) tsldr_vm_layout.loader_context.base;
+    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *)tsldr_vm_layout.loader_context.base;
 
     uintptr_t client_elf = tsldr_vm_layout.container_image.base;
     uintptr_t trampo_elf = tsldr_vm_layout.trampoline_image.base;
 
     trampoline_args_t *trampo_args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
-    client_args_t *client_args = (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
-
+    client_args_t *client_args =
+        (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
 
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(client_elf));
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampo_elf));
@@ -352,17 +309,10 @@ void mktxlo_self_load_entry(void)
 
     uintptr_t tramp_entry = ((Elf64_Ehdr *)trampo_elf)->e_entry;
 
-    TSLDR_DBG_PRINT(
-        LIB_NAME_MACRO
-        "Switch to the trampoline's code to execute: "
-        "stack: %x, entry: %x\n",
-        (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
-        (void *)tramp_entry
-    );
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute: "
+                                   "stack: %x, entry: %x\n",
+                    (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
+                    (void *)tramp_entry);
 
-    mktxlo_jumpto(
-        (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
-        (entry_fn_t)tramp_entry,
-        trampo_args
-    );
+    mktxlo_jumpto((void *)(TSLDR_VM_TRAMPOLINE_STACK_END), (entry_fn_t)tramp_entry, trampo_args);
 }

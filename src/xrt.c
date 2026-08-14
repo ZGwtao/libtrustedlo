@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
 
 #include <txloxrt.h>
 #include <txlocap.h>
@@ -35,17 +40,24 @@ typedef enum {
 #define DLG_DELEGATOR_HEADER_SIZE 16
 #define DLG_RESOURCE_SIZE 21
 
-static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator, uint16_t index)
+static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator,
+                                                           uint16_t index)
 {
-    if (index >= delegator->resource_count) return NULL;
-    return (const dlg_resource_t *)((const uint8_t *)delegator + DLG_DELEGATOR_HEADER_SIZE + index * DLG_RESOURCE_SIZE);
+    if (index >= delegator->resource_count) {
+        return NULL;
+    }
+    return (const dlg_resource_t *)((const uint8_t *)delegator + DLG_DELEGATOR_HEADER_SIZE +
+                                    index * DLG_RESOURCE_SIZE);
 }
 
-static inline const dlg_resource_t *trustedlo_xrt_util_find_resource(const dlg_delegator_t *info, uint8_t kind, seL4_Word value)
+static inline const dlg_resource_t *
+trustedlo_xrt_util_find_resource(const dlg_delegator_t *info, uint8_t kind, seL4_Word value)
 {
     for (uint16_t i = 0; i < info->resource_count; i++) {
         const dlg_resource_t *resource = dlg_delegator_resource(info, i);
-        if (resource->kind == kind && resource->arg0 == value) return resource;
+        if (resource->kind == kind && resource->arg0 == value) {
+            return resource;
+        }
     }
     return NULL;
 }
@@ -54,8 +66,11 @@ bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *txlo_info, seL4_Wor
 {
     const dlg_delegator_t *info = txlo_info;
 
-    const dlg_resource_t *resource = trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_MEMORY_REGION, vaddr);
-    if (!resource) return false;
+    const dlg_resource_t *resource =
+        trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_MEMORY_REGION, vaddr);
+    if (!resource) {
+        return false;
+    }
     *cookie = (seL4_Word)resource;
     return true;
 }
@@ -83,75 +98,67 @@ bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *txlo_info)
     return trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_IOPORT, ioport) != NULL;
 }
 
-#define XRT_REVOKE(                                                       \
-    plural, singular, field, check_fn, revoke_fn, restore_fn)             \
-    void                                                                  \
-    trustedlo_xrt_util_revoke_##plural(                                   \
-        void *data,                                                       \
-        void *txlo_info)                                                  \
-    {                                                                     \
-        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                \
-        for (seL4_Word id = 0;                                            \
-             id < MICROKIT_MAX_CHANNELS;                                  \
-             id++) {                                                      \
-            if (ctxt->field[id] != XRT_STATE_USED) {                      \
-                continue;                                                 \
-            }                                                             \
-            if (!check_fn(id, txlo_info)) {                               \
-                continue;                                                 \
-            }                                                             \
-            revoke_fn(id);                                                \
-            ctxt->field[id] = XRT_STATE_UNSET;                            \
-        }                                                                 \
+#define XRT_REVOKE(plural, singular, field, check_fn, revoke_fn, restore_fn)                       \
+    void trustedlo_xrt_util_revoke_##plural(void *data, void *txlo_info)                           \
+    {                                                                                              \
+        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                                         \
+        for (seL4_Word id = 0; id < MICROKIT_MAX_CHANNELS; id++) {                                 \
+            if (ctxt->field[id] != XRT_STATE_USED) {                                               \
+                continue;                                                                          \
+            }                                                                                      \
+            if (!check_fn(id, txlo_info)) {                                                        \
+                continue;                                                                          \
+            }                                                                                      \
+            revoke_fn(id);                                                                         \
+            ctxt->field[id] = XRT_STATE_UNSET;                                                     \
+        }                                                                                          \
     }
 
-#define XRT_RESTORE(                                                      \
-    plural, singular, field, check_fn, revoke_fn, restore_fn)             \
-    void                                                                  \
-    trustedlo_xrt_util_restore_##plural(                                  \
-        void *data,                                                       \
-        void *txlo_info)                                                  \
-    {                                                                     \
-        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                \
-        for (seL4_Word id = 0;                                            \
-             id < MICROKIT_MAX_CHANNELS;                                  \
-             id++) {                                                      \
-            xrt_state_t *state = &ctxt->field[id];                        \
-            if (*state == XRT_STATE_KEEP) {                               \
-                *state = XRT_STATE_USED;                                  \
-                continue;                                                 \
-            }                                                             \
-            if (*state == XRT_STATE_UNSET) {                              \
-                continue;                                                 \
-            }                                                             \
-            if (!check_fn(id, txlo_info)) {                               \
-                continue;                                                 \
-            }                                                             \
-            restore_fn(id);                                               \
-            *state = XRT_STATE_USED;                                      \
-        }                                                                 \
+#define XRT_RESTORE(plural, singular, field, check_fn, revoke_fn, restore_fn)                      \
+    void trustedlo_xrt_util_restore_##plural(void *data, void *txlo_info)                          \
+    {                                                                                              \
+        trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;                                         \
+        for (seL4_Word id = 0; id < MICROKIT_MAX_CHANNELS; id++) {                                 \
+            xrt_state_t *state = &ctxt->field[id];                                                 \
+            if (*state == XRT_STATE_KEEP) {                                                        \
+                *state = XRT_STATE_USED;                                                           \
+                continue;                                                                          \
+            }                                                                                      \
+            if (*state == XRT_STATE_UNSET) {                                                       \
+                continue;                                                                          \
+            }                                                                                      \
+            if (!check_fn(id, txlo_info)) {                                                        \
+                continue;                                                                          \
+            }                                                                                      \
+            restore_fn(id);                                                                        \
+            *state = XRT_STATE_USED;                                                               \
+        }                                                                                          \
     }
 
-#define XRTS_DEF(X)                                                       \
-    X(notifications, notification, allowed_notifications,                 \
-      trustedlo_xrt_util_check_notification,                              \
-      trustedlo_cap_util_revoke_notification_cap,                         \
-      trustedlo_cap_util_restore_notification_cap)                        \
-                                                                          \
-    X(ppcs, ppc, allowed_ppcs,                                            \
-      trustedlo_xrt_util_check_ppc,                                       \
-      trustedlo_cap_util_revoke_ppc_cap,                                  \
-      trustedlo_cap_util_restore_ppc_cap)                                 \
-                                                                          \
-    X(irqs, irq, allowed_irqs,                                            \
-      trustedlo_xrt_util_check_irq,                                       \
-      trustedlo_cap_util_revoke_irq_cap,                                  \
+#define XRTS_DEF(X)                                                                                \
+    X(notifications,                                                                               \
+      notification,                                                                                \
+      allowed_notifications,                                                                       \
+      trustedlo_xrt_util_check_notification,                                                       \
+      trustedlo_cap_util_revoke_notification_cap,                                                  \
+      trustedlo_cap_util_restore_notification_cap)                                                 \
+                                                                                                   \
+    X(ppcs,                                                                                        \
+      ppc,                                                                                         \
+      allowed_ppcs,                                                                                \
+      trustedlo_xrt_util_check_ppc,                                                                \
+      trustedlo_cap_util_revoke_ppc_cap,                                                           \
+      trustedlo_cap_util_restore_ppc_cap)                                                          \
+                                                                                                   \
+    X(irqs,                                                                                        \
+      irq,                                                                                         \
+      allowed_irqs,                                                                                \
+      trustedlo_xrt_util_check_irq,                                                                \
+      trustedlo_cap_util_revoke_irq_cap,                                                           \
       trustedlo_cap_util_restore_irq_cap)
 
 XRTS_DEF(XRT_REVOKE)
 XRTS_DEF(XRT_RESTORE)
-
-
 
 void trustedlo_xrt_util_restore_mappings(void *data)
 {
@@ -164,7 +171,9 @@ void trustedlo_xrt_util_restore_mappings(void *data)
             ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_USED;
             continue;
         }
-        if (ctxt->allowed_mappings.mapping_state[i] == XRT_STATE_UNSET) continue;
+        if (ctxt->allowed_mappings.mapping_state[i] == XRT_STATE_UNSET) {
+            continue;
+        }
 
         const dlg_resource_t *m = (const dlg_resource_t *)ctxt->allowed_mappings.mapping_data[i];
         TSLDR_ASSERT(m->kind == DLG_RESOURCE_MEMORY_REGION);
@@ -197,7 +206,9 @@ void trustedlo_xrt_util_revoke_mappings(void *data)
     trustedlo_cap_util_pd_grant_vspace_access();
 
     for (seL4_Word i = 0; i < ctxt->allowed_mappings.mapping_count; i++) {
-        if (ctxt->allowed_mappings.mapping_state[i] != XRT_STATE_USED) continue;
+        if (ctxt->allowed_mappings.mapping_state[i] != XRT_STATE_USED) {
+            continue;
+        }
 
         const dlg_resource_t *m = (const dlg_resource_t *)ctxt->allowed_mappings.mapping_data[i];
 
@@ -215,7 +226,6 @@ void trustedlo_xrt_util_revoke_mappings(void *data)
     }
     trustedlo_cap_util_pd_revoke_vspace_access();
 }
-
 
 void trustedlo_xrt_util_encode_xrts(void *base, const void *src)
 {
@@ -248,7 +258,6 @@ void trustedlo_xrt_util_encode_xrts(void *base, const void *src)
         xrt_entry_list++;
     }
 }
-
 
 static inline seL4_Error
 trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *txlo_info, xrt_entry_t *xrt_entry)
@@ -291,9 +300,7 @@ trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *txlo_info, xrt_entry_t *
     return seL4_NoError;
 }
 
-
-seL4_Error
-trustedlo_xrt_util_populate_xrts(void *context, void *txlo_info, void *xrt_req_header)
+seL4_Error trustedlo_xrt_util_populate_xrts(void *context, void *txlo_info, void *xrt_req_header)
 {
     trustedlo_ctxt_t *ctxt = context;
     const trustedlo_xrtreq_header_t *header = xrt_req_header;
@@ -301,26 +308,14 @@ trustedlo_xrt_util_populate_xrts(void *context, void *txlo_info, void *xrt_req_h
     uint64_t xrt_entry_num;
 
     xrt_entry_num = header->total_num;
-    xrt_entry_list = (xrt_entry_t *)(
-                        (char *)(header) +
-                                (header->serialised_offset)
-                    );
+    xrt_entry_list = (xrt_entry_t *)((char *)(header) + (header->serialised_offset));
     /* todo: check xrt region size */
 
-    for (uint64_t i = 0;
-         i < xrt_entry_num;
-         i++
-    ) {
-        TRY_OR_RETURN_ERROR(
-        trustedlo_acrt_workerfunc(
-            ctxt,
-            txlo_info,
-            &xrt_entry_list[i]
-        ));
+    for (uint64_t i = 0; i < xrt_entry_num; i++) {
+        TRY_OR_RETURN_ERROR(trustedlo_acrt_workerfunc(ctxt, txlo_info, &xrt_entry_list[i]));
     }
     return seL4_NoError;
 }
-
 
 seL4_Error trustedlo_xrt_util_parse_xrt_header(void *xrt_req_header)
 {
@@ -331,17 +326,14 @@ seL4_Error trustedlo_xrt_util_parse_xrt_header(void *xrt_req_header)
         microkit_dbg_puts(" invalid pointer given\n");
         return -1;
     }
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO
-        "number of xrts checked '%d'\n",
-        header->total_num
-    );
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of xrts checked '%d'\n", header->total_num);
     if (header->total_num > MAX_XRT_NUM) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
         microkit_dbg_puts(" number of xrts given is too big '");
         microkit_dbg_put32(header->total_num);
         return -1;
-    }    
+    }
     if (header->serialised_offset < sizeof(trustedlo_xrtreq_header_t)) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
@@ -351,4 +343,3 @@ seL4_Error trustedlo_xrt_util_parse_xrt_header(void *xrt_req_header)
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "trustedlo_xrt_util_parse_xrt_header: succeeded\n");
     return seL4_NoError;
 }
-

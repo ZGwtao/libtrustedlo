@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
 
 #include <memory.h>
 #include <miscutils.h>
@@ -119,23 +124,35 @@ void tsldr_miscutil_dbg_print(const char *format, ...)
         switch (*format) {
         case 'd':
         case 'i':
-            if (length == 2) putint(va_arg(args, long long));
-            else if (length == 1) putint(va_arg(args, long));
-            else putint(va_arg(args, int));
+            if (length == 2) {
+                putint(va_arg(args, long long));
+            } else if (length == 1) {
+                putint(va_arg(args, long));
+            } else {
+                putint(va_arg(args, int));
+            }
             break;
 
         case 'u':
-            if (length == 2) putuint(va_arg(args, unsigned long long), 10, false);
-            else if (length == 1) putuint(va_arg(args, unsigned long), 10, false);
-            else putuint(va_arg(args, unsigned int), 10, false);
+            if (length == 2) {
+                putuint(va_arg(args, unsigned long long), 10, false);
+            } else if (length == 1) {
+                putuint(va_arg(args, unsigned long), 10, false);
+            } else {
+                putuint(va_arg(args, unsigned int), 10, false);
+            }
             break;
 
         case 'x':
         case 'X': {
             bool upper = *format == 'X';
-            if (length == 2) putuint(va_arg(args, unsigned long long), 16, upper);
-            else if (length == 1) putuint(va_arg(args, unsigned long), 16, upper);
-            else putuint(va_arg(args, unsigned int), 16, upper);
+            if (length == 2) {
+                putuint(va_arg(args, unsigned long long), 16, upper);
+            } else if (length == 1) {
+                putuint(va_arg(args, unsigned long), 16, upper);
+            } else {
+                putuint(va_arg(args, unsigned int), 16, upper);
+            }
             break;
         }
 
@@ -146,11 +163,15 @@ void tsldr_miscutil_dbg_print(const char *format, ...)
 
         case 's': {
             const char *s = va_arg(args, const char *);
-            if (!s) s = "(null)";
+            if (!s) {
+                s = "(null)";
+            }
             if (precision < 0) {
                 microkit_dbg_puts(s);
             } else {
-                while (*s && precision-- > 0) microkit_dbg_putc(*s++);
+                while (*s && precision-- > 0) {
+                    microkit_dbg_putc(*s++);
+                }
             }
             break;
         }
@@ -165,27 +186,30 @@ void tsldr_miscutil_dbg_print(const char *format, ...)
 
         default:
             microkit_dbg_putc('%');
-            if (*format) microkit_dbg_putc(*format);
+            if (*format) {
+                microkit_dbg_putc(*format);
+            }
             break;
         }
 
-        if (*format) format++;
+        if (*format) {
+            format++;
+        }
     }
 
     va_end(args);
 }
 
-
 void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)
 {
-    Elf64_Phdr *phdr = (Elf64_Phdr *)((char*)ehdr + ehdr->e_phoff);
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((char *)ehdr + ehdr->e_phoff);
 
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type != PT_LOAD) {
             continue;
         }
 
-        void *src = (char*)ehdr + phdr[i].p_offset;
+        void *src = (char *)ehdr + phdr[i].p_offset;
         void *dest = (void *)(dest_vaddr + phdr[i].p_vaddr - ehdr->e_entry);
 
         tsldr_miscutil_memcpy(dest, src, phdr[i].p_filesz);
@@ -197,7 +221,6 @@ void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)
     }
 }
 
-
 void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
 {
     Elf64_Ehdr *eh = (Elf64_Ehdr *)elf_base;
@@ -208,7 +231,9 @@ void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
 
     for (int i = 0; i < eh->e_shnum; ++i) {
         Elf64_Shdr *sh = &sh_table[i];
-        if (sh->sh_name >= shstr_sh->sh_size) continue;
+        if (sh->sh_name >= shstr_sh->sh_size) {
+            continue;
+        }
         const char *name = shstrtab + sh->sh_name;
         if (tsldr_miscutil_strcmp(name, section) == 0) {
             return (void *)sh;
@@ -217,16 +242,17 @@ void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
     return (void *)NULL;
 }
 
-
-seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uintptr_t vaddr, seL4_Word *sh_size)
+seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base,
+                                                      uintptr_t vaddr,
+                                                      seL4_Word *sh_size)
 {
-    const uint8_t    *base = (const uint8_t *)elf_base;
-    const Elf64_Ehdr *eh   = (const Elf64_Ehdr *)base;
-    const Elf64_Shdr *sh   = (const Elf64_Shdr *)(base + eh->e_shoff);
+    const uint8_t *base = (const uint8_t *)elf_base;
+    const Elf64_Ehdr *eh = (const Elf64_Ehdr *)base;
+    const Elf64_Shdr *sh = (const Elf64_Shdr *)(base + eh->e_shoff);
 
     for (uint16_t i = 0; i < eh->e_shnum; ++i) {
         seL4_Word start = sh[i].sh_addr;
-        seL4_Word size  = sh[i].sh_size;
+        seL4_Word size = sh[i].sh_size;
         if (vaddr >= start && vaddr < start + size) {
             if (sh[i].sh_type == SHT_NOBITS) {
                 break;
@@ -239,4 +265,3 @@ seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uint
     }
     return (seL4_Word)-1;
 }
-

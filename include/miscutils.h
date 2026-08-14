@@ -1,33 +1,37 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#ifndef LIBTRUSTEDLO_MISCUTILS_H
+#define LIBTRUSTEDLO_MISCUTILS_H
 
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdint.h>
+
 #include <microkit.h>
 
 #include <elf.h>
 
-
-void* tsldr_miscutil_memcpy(void* dest, const void* src, uint64_t n);
-void* tsldr_miscutil_memset(void *dest, int value, uint64_t size);
-int tsldr_miscutil_memcmp(const unsigned char* s1, const unsigned char* s2, int n);
-int tsldr_miscutil_strcmp(const char* s1, const char* s2);
-
-
 void tsldr_miscutil_dbg_print(const char *format, ...);
 
+void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
+
 #ifdef CONFIG_DEBUG_BUILD
-#define TSLDR_DBG_PRINT(...) \
-    do { tsldr_miscutil_dbg_print(__VA_ARGS__); } while (0)
+#define TSLDR_DBG_PRINT(...)                                                                       \
+    do {                                                                                           \
+        tsldr_miscutil_dbg_print(__VA_ARGS__);                                                     \
+    } while (0)
 #else
-#define TSLDR_DBG_PRINT(...) \
-    do { } while (0)
+#define TSLDR_DBG_PRINT(...)                                                                       \
+    do {                                                                                           \
+    } while (0)
 #endif
 
-#define LIB_NAME_MACRO          "    => [@trustedlo] "
-#define TSLDR_ERR_PRINT_MACRO   "    => [@trustedlo::error] "
+#define LIB_NAME_MACRO "    => [@trustedlo] "
+#define TSLDR_ERR_PRINT_MACRO "    => [@trustedlo::error] "
 
-
-void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
-void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[]);
-seL4_Word tsldr_miscutil_fetch_elf_section_with_vaddr(const void *elf_base, uintptr_t vaddr, seL4_Word *sh_size);
-
+#endif
