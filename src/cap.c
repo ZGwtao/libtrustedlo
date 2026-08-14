@@ -12,8 +12,8 @@ void trustedlo_cap_util_delete_cap(seL4_Word cap_idx)
     seL4_Word err = seL4_CNode_Delete(DELEGATOR_MK_CNODE_CPTR_X, cap_idx, LOOKUP_DEPTH_MICROKIT);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_delete_cap: ");
-        microkit_dbg_puts(" failed to delete cap_idx from microkit cnode '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to delete cap_idx from microkit cnode '");
         microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -32,8 +32,8 @@ void trustedlo_cap_util_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word
                                     LOOKUP_DEPTH_DELEGATION);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_load_cap_from_backup_cnode: ");
-        microkit_dbg_puts(" failed to load cap_idx from delegation cnode '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to load cap_idx from delegation cnode '");
         // microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -52,8 +52,8 @@ void trustedlo_cap_util_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word 
                                     LOOKUP_DEPTH_MICROKIT);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_store_cap_to_backup_cnode: ");
-        microkit_dbg_puts(" failed to store cap_idx to delegation  cnode '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to store cap_idx to delegation  cnode '");
         // microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -75,8 +75,8 @@ void trustedlo_cap_util_copy_cap_from_backup_cnode(seL4_Word dest_idx,
                                     rights);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_copy_cap_from_backup_cnode: ");
-        microkit_dbg_puts(" failed to copy cap_idx from delegation cnode '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to copy cap_idx from delegation cnode '");
         microkit_dbg_put32(dest_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -92,8 +92,8 @@ void trustedlo_cap_util_pd_deprivilege(void)
 
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_pd_deprivilege: "
-                          "failed to delete delegation CNode grant\n");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to delete delegation CNode grant\n");
         microkit_internal_crash(err);
     }
 }
@@ -107,8 +107,8 @@ void trustedlo_cap_util_pd_privilege(seL4_Word pd_idx)
         seL4_CNode_Delete(delegator_root, DELEGATION_GRANT_ROOT_SLOT, LOOKUP_DEPTH_ROOT);
     if (err != seL4_NoError && err != seL4_FailedLookup) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_pd_privilege: "
-                          "failed to clear delegation grant slot\n");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to clear delegation grant slot\n");
         microkit_internal_crash(err);
     }
 
@@ -124,8 +124,8 @@ void trustedlo_cap_util_pd_privilege(seL4_Word pd_idx)
 
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_pd_privilege: "
-                          "failed to grant delegation CNode\n");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to grant delegation CNode\n");
         microkit_internal_crash(err);
     }
 }
@@ -230,8 +230,8 @@ void trustedlo_cap_util_revoke_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_revoke_irq_cap: ");
-        microkit_dbg_puts(" invalid IRQ id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -243,8 +243,8 @@ void trustedlo_cap_util_revoke_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_revoke_ppc_cap: ");
-        microkit_dbg_puts(" invalid PPC id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -256,8 +256,8 @@ void trustedlo_cap_util_revoke_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_revoke_ntfn_cap: ");
-        microkit_dbg_puts(" invalid Notification id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -269,8 +269,8 @@ void trustedlo_cap_util_restore_irq_cap(seL4_Word irq_idx)
 {
     if (irq_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_restore_irq_cap: ");
-        microkit_dbg_puts(" invalid IRQ id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid IRQ id given '");
         microkit_dbg_put32(irq_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -285,8 +285,8 @@ void trustedlo_cap_util_restore_ppc_cap(seL4_Word ppc_idx)
 {
     if (ppc_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_restore_ppc_cap: ");
-        microkit_dbg_puts(" invalid PPC id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid PPC id given '");
         microkit_dbg_put32(ppc_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -300,8 +300,8 @@ void trustedlo_cap_util_restore_notification_cap(seL4_Word ntfn_idx)
 {
     if (ntfn_idx >= MICROKIT_MAX_CHANNELS) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_restore_notification_cap: ");
-        microkit_dbg_puts(" invalid Notification id given '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid Notification id given '");
         microkit_dbg_put32(ntfn_idx);
         microkit_dbg_puts("'\n");
         return;
@@ -358,8 +358,8 @@ void trustedlo_cap_util_pd_page_map(seL4_Word page_idx,
     if (err != seL4_NoError) {
         // FIXME
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_pd_page_map: ");
-        microkit_dbg_puts(" failed to map page with id '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to map page with id '");
         microkit_dbg_put32(page_idx);
         // microkit_dbg_puts("', in vaddr: '");
         // microkit_dbg_put64(vaddr);
@@ -408,8 +408,8 @@ void trustedlo_cap_util_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
 #endif
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_pd_page_unmap: ");
-        microkit_dbg_puts(" failed to unmap page with id '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": failed to unmap page with id '");
         microkit_dbg_put32(page_idx);
         microkit_dbg_puts("'\n");
         microkit_internal_crash(err);
