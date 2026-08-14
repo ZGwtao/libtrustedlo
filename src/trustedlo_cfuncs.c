@@ -14,14 +14,17 @@
 static inline seL4_Error mktxlo_parse_requst(void *xrt_req_header)
 {
     if (!xrt_req_header) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid xrt_req_header given\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": invalid xrt_req_header given\n");
         return -1;
     }
 
     TRY_OR_RETURN_ERROR(trustedlo_xrt_util_parse_xrt_header(xrt_req_header));
 
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
-
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+    TSLDR_DBG_PRINT(__func__);
+    TSLDR_DBG_PRINT(": finished up access rights integrity checking\n");
     return seL4_NoError;
 }
 
@@ -35,8 +38,9 @@ mktxlo_populate_req2ctxt(trustedlo_ctxt_t *context, void *txlo_info, void *xrt_r
 static inline void mktxlo_revoke_caps(trustedlo_ctxt_t *context, void *txlo_info)
 {
     if (context->txlo_monitor_init_field.switch_count == 0) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "mktxlo_revoke_caps:\
-             no need to restore anything at the first-time execution\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": no need to restore anything at the first-time execution\n");
         context->txlo_monitor_init_field.switch_count++;
         return;
     }
@@ -60,16 +64,13 @@ static inline void mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_inf
     trustedlo_xrt_util_restore_mappings(context);
 }
 
-static inline seL4_Error mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
+static inline seL4_Error mktxlo_context_activate(trustedlo_ctxt_t *context)
 {
-    dlg_delegator_t *info = (dlg_delegator_t *)txlo_info;
-
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading info of PD: %d\n", info->pd_id);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted context init prologue\n");
-
     /* do some id activation here before actually parsing access rights... */
     if (context == NULL) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Try to init null context\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": try to dereference null context pointer\n");
         return -1;
     }
 
@@ -100,14 +101,15 @@ mktxlo_jumpto(void *new_stack, entry_fn_t entry, const trampoline_args_t *args)
 
 static inline seL4_Error mktxlo_payload_check_integrity(uintptr_t elf)
 {
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Check ELF integrity\n");
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
-    /* check elf integrity */
+
+    /* check elf magic number */
     if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char *)ELFMAG, SELFMAG) != 0) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF magic number mismatch\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": ELF magic number mismatch\n");
         return -1;
     }
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF magic number verified\n");
     return seL4_NoError;
 }
 
@@ -154,7 +156,7 @@ mktxlo_context_refresh(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req
 static inline seL4_Error
 mktxlo_context_switch(void *txlo_info, trustedlo_ctxt_t *context, void *xrt_req_header)
 {
-    TRY_OR_RETURN_ERROR(mktxlo_context_activate(txlo_info, context));
+    TRY_OR_RETURN_ERROR(mktxlo_context_activate(context));
     TRY_OR_RETURN_ERROR(mktxlo_context_refresh(txlo_info, context, xrt_req_header));
 
     return seL4_NoError;

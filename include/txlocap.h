@@ -84,12 +84,15 @@
 // FIXME
 // Looks like with current mapping method, we need only one slot for mapping
 // and too much slots will cause problems with overlapping cslots
-#define MAPPING_BASE_CAP (458)
+#define MK_TMP_MAP_CAP (458)
 
 #define BACKUP_NTFN_BASE_CAP (10)
 #define BACKUP_IRQ_BASE_CAP (BACKUP_NTFN_BASE_CAP + 64)
 #define BACKUP_PPC_BASE_CAP (BACKUP_IRQ_BASE_CAP + 64)
 #define BACKUP_MAPPING_BASE_CAP (BACKUP_PPC_BASE_CAP + 64)
+
+#define DLG_MAP_CAP_START (138)
+#define DLG_MAP_CAP_END (394)
 
 #define DELEGATION_CNODE_CAP ROOT_SLOT_TO_CPTR(DELEGATION_GRANT_ROOT_SLOT)
 /*

@@ -273,24 +273,27 @@ seL4_Error trustedlo_xrt_util_parse_xrt_header(void *xrt_req_header)
     const trustedlo_xrtreq_header_t *header = xrt_req_header;
     if (!header) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
-        microkit_dbg_puts(" invalid pointer given\n");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid pointer given\n");
         return -1;
     }
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of xrts checked '%d'\n", header->total_num);
     if (header->total_num > MAX_XRT_NUM) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
-        microkit_dbg_puts(" number of xrts given is too big '");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": number of xrts given is too big '");
         microkit_dbg_put32(header->total_num);
         return -1;
     }
     if (header->serialised_offset < sizeof(trustedlo_xrtreq_header_t)) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_xrt_util_parse_xrt_header: ");
-        microkit_dbg_puts(" invalid xrt entry list offset given\n");
+        microkit_dbg_puts(__func__);
+        microkit_dbg_puts(": invalid xrt entry list offset given\n");
         return -1;
     }
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trustedlo_xrt_util_parse_xrt_header: succeeded\n");
+    microkit_dbg_puts(LIB_NAME_MACRO);
+    microkit_dbg_puts(__func__);
+    microkit_dbg_puts(": succeeded\n");
+
     return seL4_NoError;
 }
