@@ -4,28 +4,12 @@
 
 void trustedlo_cap_util_delete_cap(seL4_Word cap_idx)
 {
-    seL4_Word err = seL4_CNode_Delete(CNODE_SELF_CAP, cap_idx, PD_CAP_BITS);
+    seL4_Word err = seL4_CNode_Delete(DELEGATOR_MK_CNODE_CPTR_X, cap_idx, LOOKUP_DEPTH_MICROKIT);
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_cap_util_delete_cap: ");
-        microkit_dbg_puts(" failed to delete cap_idx from working cnode '");
+        microkit_dbg_puts(" failed to delete cap_idx from microkit cnode '");
         microkit_dbg_put32(cap_idx);
-        microkit_dbg_puts("'\n");
-        /* let it crash here */
-        microkit_internal_crash(err);
-    }
-}
-
-void trustedlo_cap_util_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
-{
-    seL4_Word err = seL4_CNode_Delete(cnode_idx, cap_idx, PD_CAP_BITS);
-    if (err != seL4_NoError) {
-        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_delete_cap_from_cnode: ");
-        microkit_dbg_puts(" failed to delete cap_idx '");
-        microkit_dbg_put32(cap_idx);
-        microkit_dbg_puts("' from cnode: '");
-        microkit_dbg_put32(cnode_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
         microkit_internal_crash(err);
@@ -35,13 +19,18 @@ void trustedlo_cap_util_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode
 void trustedlo_cap_util_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
 {
     seL4_Word err = seL4_CNode_Move(
-        CNODE_SELF_CAP, dest_idx, PD_CAP_BITS,
-        CNODE_BACKUP_CAP, src_idx, PD_CAP_BITS
+        DELEGATOR_MK_CNODE_CPTR_X,
+        dest_idx,
+        LOOKUP_DEPTH_MICROKIT,
+
+        DELEGATION_CNODE_CAP,
+        src_idx,
+        LOOKUP_DEPTH_DELEGATION
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_cap_util_load_cap_from_backup_cnode: ");
-        microkit_dbg_puts(" failed to load cap_idx from backup cnode '");
+        microkit_dbg_puts(" failed to load cap_idx from delegation cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -52,13 +41,18 @@ void trustedlo_cap_util_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word
 void trustedlo_cap_util_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
 {
     seL4_Word err = seL4_CNode_Move(
-        CNODE_BACKUP_CAP, dest_idx, PD_CAP_BITS,
-        CNODE_SELF_CAP, src_idx, PD_CAP_BITS
+        DELEGATION_CNODE_CAP,
+        dest_idx,
+        LOOKUP_DEPTH_DELEGATION,
+
+        DELEGATOR_MK_CNODE_CPTR_X,
+        src_idx,
+        LOOKUP_DEPTH_MICROKIT
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_cap_util_store_cap_to_backup_cnode: ");
-        microkit_dbg_puts(" failed to store cap_idx to backup cnode '");
+        microkit_dbg_puts(" failed to store cap_idx to delegation  cnode '");
         //microkit_dbg_put32(cap_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -69,14 +63,19 @@ void trustedlo_cap_util_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word 
 void trustedlo_cap_util_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx, seL4_CapRights_t rights)
 {
     seL4_Word err = seL4_CNode_Copy(
-        CNODE_SELF_CAP, dest_idx, PD_CAP_BITS,
-        CNODE_BACKUP_CAP, src_idx, PD_CAP_BITS,
+        DELEGATOR_MK_CNODE_CPTR_X,
+        dest_idx,
+        LOOKUP_DEPTH_MICROKIT,
+
+        DELEGATION_CNODE_CAP,
+        src_idx,
+        LOOKUP_DEPTH_DELEGATION,
         rights
     );
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
         microkit_dbg_puts(" trustedlo_cap_util_copy_cap_from_backup_cnode: ");
-        microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
+        microkit_dbg_puts(" failed to copy cap_idx from delegation cnode '");
         microkit_dbg_put32(dest_idx);
         microkit_dbg_puts("'\n");
         /* let it crash here */
@@ -84,35 +83,63 @@ void trustedlo_cap_util_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word
     }
 }
 
-void trustedlo_cap_util_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_dest, seL4_Word cap_src, seL4_Word cnode_src)
+void trustedlo_cap_util_pd_deprivilege(void)
 {
-    // FIXME: copy rights
-    seL4_Word err = seL4_CNode_Copy(cnode_dest, cap_dest, PD_CAP_BITS, cnode_src, cap_src, PD_CAP_BITS, seL4_AllRights);
+    seL4_Error err = seL4_CNode_Delete(
+        DELEGATOR_ROOT_CNODE_CPTR_X,
+        DELEGATION_GRANT_ROOT_SLOT,
+        LOOKUP_DEPTH_ROOT
+    );
+
     if (err != seL4_NoError) {
         microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
-        microkit_dbg_puts(" trustedlo_cap_util_copy_cap_between_cnode: ");
-        //microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
-        //microkit_dbg_put32(cap_idx);
-        microkit_dbg_puts("'\n");
-        /* let it crash here */
+        microkit_dbg_puts(
+            " trustedlo_cap_util_pd_deprivilege: "
+            "failed to delete delegation CNode grant\n"
+        );
         microkit_internal_crash(err);
     }
 }
 
-
-void trustedlo_cap_util_pd_deprivilege(void)
-{
-    trustedlo_cap_util_delete_cap(CNODE_BACKUP_CAP);
-
-    trustedlo_cap_util_delete_cap(CNODE_SELF_CAP);
-}
-
 void trustedlo_cap_util_pd_privilege(seL4_Word pd_idx)
 {
-    trustedlo_cap_util_delete_cap_from_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx);
-    trustedlo_cap_util_delete_cap_from_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx);
-    trustedlo_cap_util_copy_cap_between_cnode(CNODE_SELF_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_CSPACE_BASE + pd_idx, CNODE_SELF_CAP);
-    trustedlo_cap_util_copy_cap_between_cnode(CNODE_BACKUP_CAP, CHILD_CSPACE_BASE + pd_idx, CHILD_BACKUP_BASE + pd_idx, CNODE_SELF_CAP);
+    seL4_CPtr delegation_cnode = DELEGATION_CNODE_CPTR(pd_idx);
+    seL4_CPtr delegator_root = DELEGATOR_ROOT_CNODE_CPTR(pd_idx);
+
+    seL4_Error err = seL4_CNode_Delete(
+                        delegator_root,
+                        DELEGATION_GRANT_ROOT_SLOT,
+                        LOOKUP_DEPTH_ROOT
+                    );
+    if (err != seL4_NoError && err != seL4_FailedLookup) {
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(
+            " trustedlo_cap_util_pd_privilege: "
+            "failed to clear delegation grant slot\n"
+        );
+        microkit_internal_crash(err);
+    }
+
+    err = seL4_CNode_Copy(
+        delegator_root,
+        DELEGATION_GRANT_ROOT_SLOT,
+        LOOKUP_DEPTH_ROOT,
+
+        delegation_cnode,
+        DELEGATION_SLOT_GRANT_CAP,
+        LOOKUP_DEPTH_DELEGATION,
+
+        seL4_AllRights
+    );
+
+    if (err != seL4_NoError) {
+        microkit_dbg_puts(TSLDR_ERR_PRINT_MACRO);
+        microkit_dbg_puts(
+            " trustedlo_cap_util_pd_privilege: "
+            "failed to grant delegation CNode\n"
+        );
+        microkit_internal_crash(err);
+    }
 }
 
 
@@ -120,18 +147,18 @@ void trustedlo_cap_util_pd_privilege(seL4_Word pd_idx)
 void trustedlo_cap_util_pd_grant_vspace_access(void)
 {
     // TODO: add log here
-    trustedlo_cap_util_load_cap_from_backup_cnode(VSPACE_SELF_CAP, VSPACE_BACKUP_CAP);
+    // trustedlo_cap_util_load_cap_from_backup_cnode(VSPACE_SELF_CAP, VSPACE_BACKUP_CAP);
 }
 
 
 void trustedlo_cap_util_pd_revoke_vspace_access(void)
 {
     // TODO: add log here
-    trustedlo_cap_util_store_cap_to_backup_cnode(VSPACE_BACKUP_CAP, VSPACE_SELF_CAP);
+    // trustedlo_cap_util_store_cap_to_backup_cnode(VSPACE_BACKUP_CAP, VSPACE_SELF_CAP);
 }
 
 
-void trustedlo_cap_util_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr, seL4_CapRights_t rights, seL4_Word attrs, seL4_Word page_num)
+void trustedlo_cap_util_pd_grant_page_access(seL4_Word page_slot, seL4_Word vaddr, seL4_CapRights_t rights, seL4_Word attrs, seL4_Word page_num)
 {
 #if 0
     if (page_idx >= MICROKIT_MAX_CHANNELS) {
@@ -143,14 +170,14 @@ void trustedlo_cap_util_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr
         return;
     }
 #endif
-    seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
+    // seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
 #if defined(CONFIG_ARM_ABS_MAP)
-    seL4_Error err = seL4_ARM_VSpace_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, vaddr, rights, attrs, page_num);
+    seL4_Error err = seL4_ARM_VSpace_Map_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_slot, LOOKUP_DEPTH_DELEGATION, vaddr, rights, attrs, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
 #elif defined(CONFIG_X86_ABS_MAP)
-    seL4_Error err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, vaddr, rights, attrs, page_num);
+    seL4_Error err = seL4_X64_PML4_Map_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_slot, LOOKUP_DEPTH_DELEGATION, vaddr, rights, attrs, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
@@ -158,35 +185,34 @@ void trustedlo_cap_util_pd_grant_page_access(seL4_Word page_idx, seL4_Word vaddr
     seL4_Word target_idx = MAPPING_BASE_CAP;
     for (seL4_Word i = 0; i < page_num; ++i) {
         /* Load the page to map from the background CNode */
-        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, backup_idx + i);
+        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, page_slot + i);
         /* Do the actual mappings here... */
         trustedlo_cap_util_pd_page_map(target_idx, vaddr, rights, attrs, 0);
         /* Move the mapped page back to the background CNode */
-        trustedlo_cap_util_store_cap_to_backup_cnode(backup_idx + i, target_idx);
+        trustedlo_cap_util_store_cap_to_backup_cnode(page_slot + i, target_idx);
     }
 #endif
 }
 
 
-void trustedlo_cap_util_pd_revoke_page_access(seL4_Word page_idx, seL4_Word page_num)
+void trustedlo_cap_util_pd_revoke_page_access(seL4_Word page_slot, seL4_Word page_num)
 {
-    seL4_Word backup_idx = BACKUP_MAPPING_BASE_CAP + page_idx;
 #if defined(CONFIG_ARM_ABS_MAP)
-    seL4_Error err = seL4_ARM_VSpace_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, page_num);
+    seL4_Error err = seL4_ARM_VSpace_Unmap_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_slot, LOOKUP_DEPTH_DELEGATION, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
 #elif defined(CONFIG_X86_ABS_MAP)
-    seL4_Error err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, backup_idx, PD_CAP_BITS, page_num);
+    seL4_Error err = seL4_X64_PML4_Unmap_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_slot, LOOKUP_DEPTH_DELEGATION, page_num);
     if (err != seL4_NoError) {
         microkit_internal_crash(err);
     }
 #else
     seL4_Word target_idx = MAPPING_BASE_CAP;
     for (seL4_Word i = 0; i < page_num; ++i) {
-        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, backup_idx + i);
+        trustedlo_cap_util_load_cap_from_backup_cnode(target_idx, page_slot + i);
         trustedlo_cap_util_pd_page_unmap(target_idx, 0);
-        trustedlo_cap_util_store_cap_to_backup_cnode(backup_idx + i, target_idx);
+        trustedlo_cap_util_store_cap_to_backup_cnode(page_slot + i, target_idx);
     }
 #endif
 }
@@ -255,7 +281,7 @@ void trustedlo_cap_util_restore_ppc_cap(seL4_Word ppc_idx)
         microkit_dbg_puts("'\n");
         return;
     }
-    trustedlo_cap_util_copy_cap_from_backup_cnode(PPC_BASE_CAP + ppc_idx, BACKUP_PPC_BASE_CAP + ppc_idx, seL4_AllRights);
+    trustedlo_cap_util_copy_cap_from_backup_cnode(PPC_BASE_CAP + ppc_idx, PPC_BASE_CAP + ppc_idx, seL4_AllRights);
 }
 
 void trustedlo_cap_util_restore_notification_cap(seL4_Word ntfn_idx)
@@ -277,20 +303,20 @@ void trustedlo_cap_util_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_Ca
     seL4_Word err;
 #if defined(CONFIG_ARCH_X86_64)
     if (flags == 0)
-        err = seL4_X86_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
+        err = seL4_X86_Page_Map(page_idx, DELEGATOR_VSPACE_CPTR, vaddr, rights, attrs);
     else {
 #if defined(CONFIG_X86_ABS_MAP)
-        err = seL4_X64_PML4_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
+        err = seL4_X64_PML4_Map_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_idx, LOOKUP_DEPTH_DELEGATION, vaddr, rights, attrs, 1);
 #else
 #error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelX86AbsMap"
 #endif
     }
 #elif defined(CONFIG_ARCH_AARCH64)
     if (flags == 0)
-        err = seL4_ARM_Page_Map(page_idx, VSPACE_SELF_CAP, vaddr, rights, attrs);
+        err = seL4_ARM_Page_Map(page_idx, DELEGATOR_VSPACE_CPTR, vaddr, rights, attrs);
     else {
 #if defined(CONFIG_ARM_ABS_MAP)
-        err = seL4_ARM_VSpace_Map_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, vaddr, rights, attrs, 1);
+        err = seL4_ARM_VSpace_Map_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_idx, LOOKUP_DEPTH_DELEGATION, vaddr, rights, attrs, 1);
 #else
 #error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelArmAbsMap"
 #endif
@@ -323,7 +349,7 @@ void trustedlo_cap_util_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
         err = seL4_X86_Page_Unmap(page_idx);
     else {
 #if defined(CONFIG_X86_ABS_MAP)
-        err = seL4_X64_PML4_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, 1);
+        err = seL4_X64_PML4_Unmap_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_idx, LOOKUP_DEPTH_DELEGATION, 1);
 #else
 #error "Unsupported syscall for trustedlo_cap_util_pd_page_unmap, try enable KernelX86AbsMap"
 #endif
@@ -333,7 +359,7 @@ void trustedlo_cap_util_pd_page_unmap(seL4_Word page_idx, uint8_t flags)
         err = seL4_ARM_Page_Unmap(page_idx);
     else {
 #if defined(CONFIG_ARM_ABS_MAP)
-        err = seL4_ARM_VSpace_Unmap_Absolute(VSPACE_SELF_CAP, CNODE_BACKUP_CAP, page_idx, PD_CAP_BITS, 1);
+        err = seL4_ARM_VSpace_Unmap_Absolute(DELEGATOR_VSPACE_CPTR, DELEGATION_CNODE_CAP, page_idx, LOOKUP_DEPTH_DELEGATION, 1);
 #else
 #error "Unsupported syscall for trustedlo_cap_util_pd_page_map, try enable KernelArmAbsMap"
 #endif

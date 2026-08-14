@@ -6,7 +6,15 @@
 
 typedef void (*entry_fn_t)(void);
 
-seL4_IPCBuffer *__sel4_ipc_buffer;
+/* Stolen from libmicrokit */
+
+#define BIT(n) (1ULL << (n))
+#define MASK(n) (BIT(n) - 1ULL)
+
+/* The tool assumes the IPC buffer in the top page of user memory */
+seL4_IPCBuffer *__sel4_ipc_buffer = (seL4_IPCBuffer *)(seL4_UserVSpaceTop & ~MASK(seL4_PageBits));
+_Static_assert(sizeof(seL4_IPCBuffer) <= BIT(seL4_PageBits),
+               "IPC Buffer is expected to need less than one page in size");
 
 #if defined(CONFIG_ARCH_X86_64)
 
@@ -61,8 +69,6 @@ trampoline_backup_trustedlo_context(const trampoline_args_t *args)
 __attribute__((noreturn, used))
 void trampoline_entry(const trampoline_args_t *args)
 {
-    __sel4_ipc_buffer = (seL4_IPCBuffer *)args->ipc_buffer;
-
     /* Before refreshing, call monitor to save valuable things. */
     trampoline_backup_trustedlo_context(args);
 

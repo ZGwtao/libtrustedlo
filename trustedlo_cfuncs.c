@@ -4,6 +4,57 @@
 #include <libtrustedlo.h>
 #include <tsldr_vm_layout.h>
 
+#define DLG_MAX_DELEGATORS 16
+#define DLG_HEADER_SIZE 16
+#define DLG_DELEGATOR_HEADER_SIZE 16
+#define DLG_RESOURCE_SIZE 21
+
+typedef struct __attribute__((packed)) {
+    uint8_t kind;
+    uint8_t flags;
+    uint16_t slot;
+    uint8_t cap_count;
+    uint64_t arg0;
+    uint64_t arg1;
+} dlg_resource_t;
+
+typedef struct __attribute__((packed)) {
+    uint16_t record_size;
+    uint16_t resource_count;
+    uint32_t delegation_cap;
+    uint64_t pd_id;
+} dlg_delegator_t;
+
+typedef struct {
+    uint32_t delegator_count;
+    uint32_t total_size;
+    const dlg_delegator_t *delegators[DLG_MAX_DELEGATORS];
+} dlg_header_t;
+
+static inline uint16_t dlg_read_u16(const uint8_t *p)
+{
+    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+
+static inline uint32_t dlg_read_u32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator, uint16_t index)
+{
+    if (index >= delegator->resource_count) return NULL;
+    return (const dlg_resource_t *)((const uint8_t *)delegator + DLG_DELEGATOR_HEADER_SIZE + index * DLG_RESOURCE_SIZE);
+}
+
+static inline const dlg_delegator_t *dlg_find_delegator(const dlg_header_t *dlg, uint64_t pd_id)
+{
+    for (uint32_t i = 0; i < dlg->delegator_count; i++) {
+        if (dlg->delegators[i]->pd_id == pd_id) return dlg->delegators[i];
+    }
+    return NULL;
+}
+
 
 static inline seL4_Error
 mktxlo_parse_requst(void *xrt_req_header)
@@ -66,12 +117,9 @@ mktxlo_restore_caps(trustedlo_ctxt_t *context, void *txlo_info)
 static inline seL4_Error
 mktxlo_context_activate(void *txlo_info, trustedlo_ctxt_t *context)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    if (!md->init) {
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is not prepared...\n");
-        return -1;
-    }
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading metadata is ready...\n");
+    dlg_delegator_t *info = (dlg_delegator_t *)txlo_info;
+
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loading info of PD: %d\n", info->pd_id);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted context init prologue\n");
 
     /* do some id activation here before actually parsing access rights... */

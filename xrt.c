@@ -7,43 +7,81 @@
 /* once uncomment this, you will map all frames one by one */
 // #undef CONFIG_BATCHING_MAP
 
+typedef struct __attribute__((packed)) {
+    uint8_t kind;
+    uint8_t flags;
+    uint16_t slot;
+    uint8_t cap_count;
+    uint64_t arg0;
+    uint64_t arg1;
+} dlg_resource_t;
+
+typedef struct __attribute__((packed)) {
+    uint16_t record_size;
+    uint16_t resource_count;
+    uint32_t delegation_cap;
+    uint64_t pd_id;
+} dlg_delegator_t;
+
+typedef enum {
+    DLG_RESOURCE_CHANNEL_NOTIFY = 1,
+    DLG_RESOURCE_CHANNEL_PPC = 2,
+    DLG_RESOURCE_MEMORY_REGION = 3,
+    DLG_RESOURCE_IOPORT = 4,
+} dlg_resource_kind_t;
+
+#define DLG_MAX_DELEGATORS 16
+#define DLG_HEADER_SIZE 16
+#define DLG_DELEGATOR_HEADER_SIZE 16
+#define DLG_RESOURCE_SIZE 21
+
+static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator, uint16_t index)
+{
+    if (index >= delegator->resource_count) return NULL;
+    return (const dlg_resource_t *)((const uint8_t *)delegator + DLG_DELEGATOR_HEADER_SIZE + index * DLG_RESOURCE_SIZE);
+}
+
+static inline const dlg_resource_t *trustedlo_xrt_util_find_resource(const dlg_delegator_t *info, uint8_t kind, seL4_Word value)
+{
+    for (uint16_t i = 0; i < info->resource_count; i++) {
+        const dlg_resource_t *resource = dlg_delegator_resource(info, i);
+        if (resource->kind == kind && resource->arg0 == value) return resource;
+    }
+    return NULL;
+}
 
 bool trustedlo_xrt_util_check_mapping(seL4_Word vaddr, void *txlo_info, seL4_Word *cookie)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    for (int i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
-        if (md->mappings[i].vaddr == vaddr) {
-            *cookie = (seL4_Word)(&md->mappings[i]);
-            return true;
-        }
-    }
-    return false;
+    const dlg_delegator_t *info = txlo_info;
+
+    const dlg_resource_t *resource = trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_MEMORY_REGION, vaddr);
+    if (!resource) return false;
+    *cookie = (seL4_Word)resource;
+    return true;
 }
 
 bool trustedlo_xrt_util_check_notification(seL4_Word ntfn, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    return md->bitmap_opt_notifications & (1 << ntfn);
+    const dlg_delegator_t *info = txlo_info;
+    return trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_CHANNEL_NOTIFY, ntfn) != NULL;
 }
 
 bool trustedlo_xrt_util_check_ppc(seL4_Word ppc, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    return md->bitmap_opt_ppcs & (1 << ppc);
+    const dlg_delegator_t *info = txlo_info;
+    return trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_CHANNEL_PPC, ppc) != NULL;
 }
 
 bool trustedlo_xrt_util_check_irq(seL4_Word irq, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    return md->bitmap_opt_irqs & (1 << irq);
+    return false;
 }
 
 bool trustedlo_xrt_util_check_ioport(seL4_Word ioport, void *txlo_info)
 {
-    txlo_info_t *md = (txlo_info_t *)txlo_info;
-    return md->bitmap_opt_ioports & (1 << ioport);
+    const dlg_delegator_t *info = txlo_info;
+    return trustedlo_xrt_util_find_resource(info, DLG_RESOURCE_IOPORT, ioport) != NULL;
 }
-
 
 #define XRT_REVOKE(                                                       \
     plural, singular, field, check_fn, revoke_fn, restore_fn)             \
@@ -117,7 +155,6 @@ XRTS_DEF(XRT_RESTORE)
 
 void trustedlo_xrt_util_restore_mappings(void *data)
 {
-    /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
 
     trustedlo_cap_util_pd_grant_vspace_access();
@@ -127,63 +164,54 @@ void trustedlo_xrt_util_restore_mappings(void *data)
             ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_USED;
             continue;
         }
-        if (ctxt->allowed_mappings.mapping_state[i] == XRT_STATE_UNSET) {
-            continue;
-        }
-        const txlo_map_t *m = (const txlo_map_t *)(
-                                    ctxt->allowed_mappings.mapping_data[i]
-                               );
+        if (ctxt->allowed_mappings.mapping_state[i] == XRT_STATE_UNSET) continue;
+
+        const dlg_resource_t *m = (const dlg_resource_t *)ctxt->allowed_mappings.mapping_data[i];
+        TSLDR_ASSERT(m->kind == DLG_RESOURCE_MEMORY_REGION);
+
+        seL4_Word page = m->slot;
+        seL4_Word vaddr = m->arg0;
+        seL4_Word page_num = m->cap_count;
 
         seL4_CapRights_t rights = seL4_AllRights;
-        // FIXME
-        // rights.words[0] = mapping->rights;
-#if defined(CONFIG_BATCHING_MAP)
-        /* allow mapping in batches */
-        trustedlo_cap_util_pd_grant_page_access(m->page, m->vaddr, rights, m->attrs, m->page_num);
-#else
-        for (int j = 0; j < m->page_num; ++j) {
-            trustedlo_cap_util_pd_grant_page_access(m->page + j, m->vaddr + j * m->page_size, rights, m->attrs, 1);
-        }
-#endif /* CONFIG_BATCHING_MAP */
-        ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_USED;
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
+#if defined(CONFIG_BATCHING_MAP)
+        trustedlo_cap_util_pd_grant_page_access(page, vaddr, rights, 0, page_num);
+#else
+        for (seL4_Word j = 0; j < page_num; j++) {
+            trustedlo_cap_util_pd_grant_page_access(page + j, vaddr + j * page_size, rights, 0, 1);
+        }
+#endif
+
+        ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_USED;
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "restore mapping '%d' at vaddr '%x'\n", page, vaddr);
     }
 
     trustedlo_cap_util_pd_revoke_vspace_access();
-
 }
 
 void trustedlo_xrt_util_revoke_mappings(void *data)
 {
-    /* initialise trusted ctxt context */
     trustedlo_ctxt_t *ctxt = (trustedlo_ctxt_t *)data;
 
     trustedlo_cap_util_pd_grant_vspace_access();
 
     for (seL4_Word i = 0; i < ctxt->allowed_mappings.mapping_count; i++) {
-        /*
-         * for those mapping areas that are already mapped,
-         * remove them before next run to create an empty PD
-         */
-        if (ctxt->allowed_mappings.mapping_state[i] != XRT_STATE_USED) {
-            continue;
-        }
-        const txlo_map_t *m = (const txlo_map_t *)(
-                                    ctxt->allowed_mappings.mapping_data[i]
-                               );
+        if (ctxt->allowed_mappings.mapping_state[i] != XRT_STATE_USED) continue;
+
+        const dlg_resource_t *m = (const dlg_resource_t *)ctxt->allowed_mappings.mapping_data[i];
+
 #if defined(CONFIG_BATCHING_MAP)
-        /* allow unmap in batch... */
-        trustedlo_cap_util_pd_revoke_page_access(m->page, m->page_num);
+        trustedlo_cap_util_pd_revoke_page_access(m->slot, m->cap_count);
 #else
-        for (int j = 0; j < m->page_num; ++j) {
-            trustedlo_cap_util_pd_revoke_page_access(m->page + j, 1);
+        for (seL4_Word j = 0; j < m->cap_count; ++j) {
+            trustedlo_cap_util_pd_revoke_page_access(m->slot + j, 1);
         }
-#endif /* CONFIG_BATCHING_MAP */
+#endif
 
         ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_UNSET;
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke mapping '%d' at vaddr '%x'\n", m->page, m->vaddr);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "revoke mapping '%d' at vaddr '%x'\n", m->slot, m->arg0);
     }
     trustedlo_cap_util_pd_revoke_vspace_access();
 }
