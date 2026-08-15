@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <microkit.h>
+#include <mktsymb.h>
 #include <miscutils.h>
 #include <trampoline.h>
 

@@ -81,7 +81,8 @@ LIB_SOURCES := \
 	cap.c \
 	xrt.c \
 	miscutils.c \
-	memory.c
+	memory.c \
+	mktsymb.c
 
 LIB_OBJECTS := \
 	$(patsubst %.c,$(LIB_BUILD_DIR)/%.o,$(LIB_SOURCES))

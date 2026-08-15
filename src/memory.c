@@ -51,3 +51,13 @@ int tsldr_miscutil_strcmp(const char *s1, const char *s2)
     }
     return (a[i] - b[i]);
 }
+
+size_t tsldr_miscutil_strlen(const char *s)
+{
+    size_t len = 0;
+
+    while (s[len] != '\0')
+        ++len;
+
+    return len;
+}

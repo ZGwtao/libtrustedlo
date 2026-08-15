@@ -11,6 +11,18 @@
 #include <tsldr_vm_layout.h>
 #include <memory.h>
 
+static inline Elf64_Ehdr *mktxlo_client_image_elf(uintptr_t image)
+{
+    protocon_image_header_t *header = (protocon_image_header_t *)image;
+    return (Elf64_Ehdr *)(image + header->elf_offset);
+}
+
+static inline void *mktxlo_client_image_mktsymb(uintptr_t image)
+{
+    protocon_image_header_t *header = (protocon_image_header_t *)image;
+    return (void *)(image + header->mktsymb_offset);
+}
+
 static inline seL4_Error mktxlo_parse_requst(void *xrt_req_header)
 {
     if (!xrt_req_header) {
@@ -113,10 +125,108 @@ static inline seL4_Error mktxlo_payload_check_integrity(uintptr_t elf)
     return seL4_NoError;
 }
 
+static inline seL4_Error mktxlo_client_image_check_integrity(uintptr_t image)
+{
+    protocon_image_header_t *header = (protocon_image_header_t *)image;
+
+    if (header->magic != PROTOCON_IMAGE_MAGIC) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": client image magic mismatch\n");
+        return -1;
+    }
+
+    const uint8_t *mktsymb = (const uint8_t *)mktxlo_client_image_mktsymb(image);
+    if (tsldr_miscutil_memcmp(mktsymb, (const unsigned char *)PROTOCON_MKTSYMB_MAGIC, 8) != 0) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+        TSLDR_DBG_PRINT(__func__);
+        TSLDR_DBG_PRINT(": mktsymb magic mismatch\n");
+        return -1;
+    }
+
+    return mktxlo_payload_check_integrity((uintptr_t)mktxlo_client_image_elf(image));
+}
+
 static inline seL4_Error mktxlo_payload_load(void *base)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)base;
     tsldr_miscutil_load_elf((void *)(ehdr->e_entry), ehdr);
+    return seL4_NoError;
+}
+
+static inline Elf64_Sym *
+mktxlo_elf_find_symbol(Elf64_Ehdr *ehdr, const char *name, uint16_t name_len)
+{
+    Elf64_Shdr *shdr = (Elf64_Shdr *)((uintptr_t)ehdr + ehdr->e_shoff);
+
+    for (uint16_t i = 0; i < ehdr->e_shnum; ++i) {
+        if (shdr[i].sh_type != SHT_SYMTAB) {
+            continue;
+        }
+
+        Elf64_Sym *symtab = (Elf64_Sym *)((uintptr_t)ehdr + shdr[i].sh_offset);
+        Elf64_Shdr *strtab_hdr = &shdr[shdr[i].sh_link];
+        const char *strtab = (const char *)((uintptr_t)ehdr + strtab_hdr->sh_offset);
+        uint64_t count = shdr[i].sh_size / sizeof(Elf64_Sym);
+
+        for (uint64_t j = 0; j < count; ++j) {
+            const char *sym_name = strtab + symtab[j].st_name;
+
+            if (tsldr_miscutil_strlen(sym_name) == name_len &&
+                tsldr_miscutil_memcmp((const unsigned char *)sym_name,
+                                      (const unsigned char *)name,
+                                      name_len) == 0) {
+                return &symtab[j];
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static inline seL4_Error mktxlo_client_patch_symbols(uintptr_t image)
+{
+    Elf64_Ehdr *ehdr = mktxlo_client_image_elf(image);
+    mktsymb_header_t mktsymb;
+
+    mktsymb_read(&mktsymb, mktxlo_client_image_mktsymb(image));
+
+    const uint8_t *p = mktsymb.symbols;
+
+    for (uint32_t i = 0; i < mktsymb.symbol_cnt; ++i) {
+        mktsymb_symbol_t symbol;
+        p = mktsymb_read_symbol(p, &symbol);
+
+        Elf64_Sym *elf_symbol = mktxlo_elf_find_symbol(ehdr, symbol.name, symbol.name_len);
+
+        if (elf_symbol == NULL) {
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO);
+            TSLDR_DBG_PRINT(__func__);
+            TSLDR_DBG_PRINT(": failed to find symbol %.*s\n", (int)symbol.name_len, symbol.name);
+            return -1;
+        }
+
+        tsldr_miscutil_memcpy((void *)(uintptr_t)elf_symbol->st_value,
+                              symbol.data,
+                              symbol.data_len);
+
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "patched %.*s at %x size=%d\n",
+                        (int)symbol.name_len,
+                        symbol.name,
+                        (uintptr_t)elf_symbol->st_value,
+                        symbol.data_len);
+    }
+
+    return seL4_NoError;
+}
+
+static inline seL4_Error mktxlo_client_image_load(uintptr_t image)
+{
+    Elf64_Ehdr *ehdr = mktxlo_client_image_elf(image);
+
+    TRY_OR_RETURN_ERROR(mktxlo_payload_load(ehdr));
+    TRY_OR_RETURN_ERROR(mktxlo_client_patch_symbols(image));
+
     return seL4_NoError;
 }
 
@@ -167,7 +277,7 @@ static inline seL4_Error mktxlo_fill_tramp_args(void *context, void *frame_targs
     const trustedlo_ctxt_t *ctxt = context;
     trampoline_args_t *args = (trampoline_args_t *)(frame_targs);
 
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)(tsldr_vm_layout.container_image.base);
+    Elf64_Ehdr *ehdr = mktxlo_client_image_elf(tsldr_vm_layout.container_image.base);
 
     *args = (trampoline_args_t){
         .regions =
@@ -270,12 +380,12 @@ void mktxlo_self_load_entry(void)
     client_args_t *client_args =
         (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
 
-    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(client_elf));
+    TRY_OR_RETURN_VOID(mktxlo_client_image_check_integrity(client_elf));
     TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampo_elf));
 
     TRY_OR_RETURN_VOID(mktxlo_context_switch(txlo_info, context, xrt_req_header));
 
-    TRY_OR_RETURN_VOID(mktxlo_payload_load((Elf64_Ehdr *)client_elf));
+    TRY_OR_RETURN_VOID(mktxlo_client_image_load(client_elf));
     TRY_OR_RETURN_VOID(mktxlo_payload_load((Elf64_Ehdr *)trampo_elf));
 
     TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, trampo_args));
