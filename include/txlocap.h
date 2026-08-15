@@ -11,15 +11,8 @@
 
 #define PD_CAP_BITS (64)
 
-/*
- * Microkit CSpace layout:
- *
- *   root CNode:        64 slots  -> radix 6
- *   Microkit CNode:   512 slots  -> radix 9
- *   delegation CNode: 512 slots  -> radix 9
- */
 #define ROOT_CAP_BITS (6)
-#define MK_CAP_BITS (9)
+#define MK_CAP_BITS (10)
 
 #define LOOKUP_DEPTH_ROOT (ROOT_CAP_BITS)
 #define LOOKUP_DEPTH_MICROKIT (MK_CAP_BITS)
@@ -91,8 +84,10 @@
 #define BACKUP_PPC_BASE_CAP (BACKUP_IRQ_BASE_CAP + 64)
 #define BACKUP_MAPPING_BASE_CAP (BACKUP_PPC_BASE_CAP + 64)
 
+#define MK_CAP_SLOT (1UL << MK_CAP_BITS)
+
 #define DLG_MAP_CAP_START (138)
-#define DLG_MAP_CAP_END (394)
+#define DLG_MAP_CAP_END (MK_CAP_SLOT - 64)
 
 #define DELEGATION_CNODE_CAP ROOT_SLOT_TO_CPTR(DELEGATION_GRANT_ROOT_SLOT)
 /*
