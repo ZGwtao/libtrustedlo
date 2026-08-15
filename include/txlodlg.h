@@ -17,7 +17,7 @@ typedef struct __attribute__((packed)) {
     uint8_t kind;
     uint8_t flags;
     uint16_t slot;
-    uint8_t cap_count;
+    uint16_t cap_count;
     uint64_t arg0;
     uint64_t arg1;
 } dlg_resource_t;
@@ -38,8 +38,8 @@ typedef enum {
 
 #define DLG_MAX_DELEGATORS 16
 #define DLG_HEADER_SIZE 16
-#define DLG_DELEGATOR_HEADER_SIZE 16
-#define DLG_RESOURCE_SIZE 21
+#define DLG_RESOURCE_SIZE sizeof(dlg_resource_t)
+#define DLG_DELEGATOR_HEADER_SIZE sizeof(dlg_delegator_t)
 
 static inline const dlg_resource_t *dlg_delegator_resource(const dlg_delegator_t *delegator,
                                                            uint16_t index)
