@@ -12,6 +12,8 @@ MICROKIT_CONFIG ?= debug
 CPU ?= cortex-a53
 TARGET ?= aarch64-none-elf
 LLVM ?= 1
+PANCAKE_COMPILER ?= cake
+PANCAKE_CPP ?= cpp
 
 ifeq ($(filter $(STYLE_GOALS),$(MAKECMDGOALS)),)
 ifndef MICROKIT_SDK
@@ -65,6 +67,25 @@ export LIBTRUSTEDLO_PATH
 
 LIB_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
 CFG_GEN_DIR := $(LIB_BUILD_DIR)/generated
+
+ifneq ($(findstring aarch64,$(TARGET)),)
+PANCAKE_TARGET := arm8
+else ifneq ($(findstring x86_64,$(TARGET)),)
+PANCAKE_TARGET := x64
+else ifneq ($(findstring riscv64,$(TARGET)),)
+PANCAKE_TARGET := riscv
+else
+$(error Unsupported Pancake target for TARGET=$(TARGET))
+endif
+
+PANCAKE_FLAGS := \
+	--pancake \
+	--target=$(PANCAKE_TARGET) \
+	--main_return=true
+
+PANCAKE_HELLO_SRC := $(LIBTRUSTEDLO_PATH)/loader/hello.pnk
+PANCAKE_HELLO_ASM := $(LIB_BUILD_DIR)/hello_pancake.S
+PANCAKE_HELLO_OBJ := $(LIB_BUILD_DIR)/hello_pancake.o
 
 LIBTRUSTEDLO := $(LIB_BUILD_DIR)/libtrustedlo.a
 LIB_SRC_DIR := $(LIBTRUSTEDLO_PATH)/src
@@ -183,6 +204,12 @@ $(LIB_BUILD_DIR):
 
 $(LIB_BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.c  $(VM_LAYOUT_HEADER)
 	@mkdir -p $(dir $@)
+	$(CC) $(LIB_CFLAGS) -c $< -o $@
+
+$(PANCAKE_HELLO_ASM): $(PANCAKE_HELLO_SRC) | $(LIB_BUILD_DIR)
+	$(PANCAKE_CPP) -P $< | $(PANCAKE_COMPILER) $(PANCAKE_FLAGS) > $@
+
+$(PANCAKE_HELLO_OBJ): $(PANCAKE_HELLO_ASM)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
 $(LIBTRUSTEDLO): $(LIB_OBJECTS)
