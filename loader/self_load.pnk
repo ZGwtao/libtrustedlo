@@ -4,25 +4,38 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include "pancake_args.h"
+
 #define PROTOCON_IMAGE_MAGIC       1346586957
 #define PROTOCON_MKTSYMB_OFFSET    8
 #define PROTOCON_ELF_OFFSET        24
 
-/* "MKTSYMB\0" */
-#define MKTSYMB_MAGIC_0            77
-#define MKTSYMB_MAGIC_1            75
-#define MKTSYMB_MAGIC_2            84
-#define MKTSYMB_MAGIC_3            83
-#define MKTSYMB_MAGIC_4            89
-#define MKTSYMB_MAGIC_5            77
-#define MKTSYMB_MAGIC_6            66
-#define MKTSYMB_MAGIC_7            0
+inline fun pancake_arg(1 index)
+{
+    var value = lds 1 (@base + index * @biw);
+    return value;
+}
 
-/* "\x7fELF" */
-#define ELF_MAGIC_0                127
-#define ELF_MAGIC_1                69
-#define ELF_MAGIC_2                76
-#define ELF_MAGIC_3                70
+fun mktxlo_memcmp(1 lhs, 1 rhs, 1 length)
+{
+    var error = 0 - 1;
+    var index = 0;
+    var lhs_byte = 0;
+    var rhs_byte = 0;
+
+    /* Compare byte by byte */
+    while (index < length) {
+        !ld8 lhs_byte, lhs + index;
+        !ld8 rhs_byte, rhs + index;
+        /* If values not equal, exit */
+        if (lhs_byte != rhs_byte) {
+            return error;
+        }
+        /* Check next byte */
+        index = index + 1;
+    }
+    return 0;
+}
 
 inline fun mktxlo_client_image_region(1 image, 1 offset_field)
 {
@@ -56,44 +69,14 @@ fun mktxlo_client_image_check_magic(1 image)
 
 fun mktxlo_payload_check_mktsymb(1 mktsymb)
 {
-    var error = 0 - 1;
-    var byte = 0;
-
-    !ld8 byte, mktsymb;
-    if (byte != MKTSYMB_MAGIC_0) { return error; }
-    !ld8 byte, mktsymb + 1;
-    if (byte != MKTSYMB_MAGIC_1) { return error; }
-    !ld8 byte, mktsymb + 2;
-    if (byte != MKTSYMB_MAGIC_2) { return error; }
-    !ld8 byte, mktsymb + 3;
-    if (byte != MKTSYMB_MAGIC_3) { return error; }
-    !ld8 byte, mktsymb + 4;
-    if (byte != MKTSYMB_MAGIC_4) { return error; }
-    !ld8 byte, mktsymb + 5;
-    if (byte != MKTSYMB_MAGIC_5) { return error; }
-    !ld8 byte, mktsymb + 6;
-    if (byte != MKTSYMB_MAGIC_6) { return error; }
-    !ld8 byte, mktsymb + 7;
-    if (byte != MKTSYMB_MAGIC_7) { return error; }
-
-    return 0;
+    var magic_addr = pancake_arg(PNK_ARG_MKS_MAGIC);
+    return mktxlo_memcmp(mktsymb, magic_addr, MKS_MAGIC_SIZE);
 }
 
 fun mktxlo_payload_check_elf_magic(1 elf)
 {
-    var error = 0 - 1;
-    var byte = 0;
-
-    !ld8 byte, elf;
-    if (byte != ELF_MAGIC_0) { return error; }
-    !ld8 byte, elf + 1;
-    if (byte != ELF_MAGIC_1) { return error; }
-    !ld8 byte, elf + 2;
-    if (byte != ELF_MAGIC_2) { return error; }
-    !ld8 byte, elf + 3;
-    if (byte != ELF_MAGIC_3) { return error; }
-
-    return 0;
+    var magic_addr = pancake_arg(PNK_ARG_ELF_MAGIC);
+    return mktxlo_memcmp(elf, magic_addr, ELF_MAGIC_SIZE);
 }
 
 fun mktxlo_client_image_check_integrity(1 image)
@@ -125,8 +108,8 @@ fun mktxlo_client_image_check_integrity(1 image)
 
 fun mktxlo_self_load_entry_pancake()
 {
-    var client_image = lds 1 @base;
-    var trampo_image = lds 1 (@base + @biw);
+    var client_image = pancake_arg(PNK_ARG_CLIENT_IMAGE);
+    var trampo_image = pancake_arg(PNK_ARG_TRAMPO_IMAGE);
 
     var r =
         mktxlo_client_image_check_integrity(client_image);

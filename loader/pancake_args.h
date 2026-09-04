@@ -1,0 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#ifndef LIBTRUSTEDLO_PANCAKE_ARGS_H
+#define LIBTRUSTEDLO_PANCAKE_ARGS_H
+
+#define PNK_ARG_CLIENT_IMAGE 0
+#define PNK_ARG_TRAMPO_IMAGE 1
+#define PNK_ARG_MKS_MAGIC 2
+#define PNK_ARG_ELF_MAGIC 3
+
+#define MKS_MAGIC_SIZE 8
+#define ELF_MAGIC_SIZE 4
+
+#endif

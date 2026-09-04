@@ -7,11 +7,21 @@
 #include <libtrustedlo.h>
 #include <tsldr_vm_layout.h>
 
+#include "pancake_args.h"
+
 #define PANCAKE_HEAP_SIZE (10 * 1024)
 #define PANCAKE_STACK_SIZE (10 * 1024)
 
 static unsigned char pancake_memory[PANCAKE_HEAP_SIZE + PANCAKE_STACK_SIZE]
     __attribute__((aligned(16)));
+
+static const unsigned char pnk_mktsymb_magic[] = PROTOCON_MKTSYMB_MAGIC;
+_Static_assert(sizeof(pnk_mktsymb_magic) - 1 == MKS_MAGIC_SIZE,
+               "unexpected mktsymb magic size");
+
+static const unsigned char pnk_elf_magic[] = ELFMAG;
+_Static_assert(sizeof(pnk_elf_magic) - 1 == ELF_MAGIC_SIZE,
+               "unexpected ELF magic size");
 
 extern void *cml_heap;
 extern void *cml_stack;
@@ -59,8 +69,13 @@ void ffimktxlo_self_load_continue(unsigned char *c, long result, unsigned char *
 void mktxlo_self_load_entry_pancake(void)
 {
     pancake_init();
-    ((uintptr_t *)cml_heap)[0] = tsldr_vm_layout.container_image.base;
-    ((uintptr_t *)cml_heap)[1] = tsldr_vm_layout.trampoline_image.base;
+    uintptr_t *args = (uintptr_t *)cml_heap;
+
+    args[PNK_ARG_CLIENT_IMAGE] = tsldr_vm_layout.container_image.base;
+    args[PNK_ARG_TRAMPO_IMAGE] = tsldr_vm_layout.trampoline_image.base;
+    args[PNK_ARG_MKS_MAGIC] = (uintptr_t)pnk_mktsymb_magic;
+    args[PNK_ARG_ELF_MAGIC] = (uintptr_t)pnk_elf_magic;
+
     cml_main();
 }
 
