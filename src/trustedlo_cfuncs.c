@@ -366,7 +366,7 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
     return seL4_NoError;
 }
 
-void mktxlo_self_load_entry(void)
+static void mktxlo_self_load(bool check_client_image)
 {
     void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
     void *xrt_req_header = (void *)tsldr_vm_layout.txlo_xrt_req.base;
@@ -380,8 +380,10 @@ void mktxlo_self_load_entry(void)
     client_args_t *client_args =
         (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
 
-    TRY_OR_RETURN_VOID(mktxlo_client_image_check_integrity(client_elf));
-    TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampo_elf));
+    if (check_client_image) {
+        TRY_OR_RETURN_VOID(mktxlo_client_image_check_integrity(client_elf));
+        TRY_OR_RETURN_VOID(mktxlo_payload_check_integrity(trampo_elf));
+    }
 
     TRY_OR_RETURN_VOID(mktxlo_context_switch(txlo_info, context, xrt_req_header));
 
@@ -401,4 +403,14 @@ void mktxlo_self_load_entry(void)
                     (void *)tramp_entry);
 
     mktxlo_jumpto((void *)(TSLDR_VM_TRAMPOLINE_STACK_END), (entry_fn_t)tramp_entry, trampo_args);
+}
+
+void mktxlo_self_load_entry(void)
+{
+    mktxlo_self_load(true);
+}
+
+void mktxlo_self_load_continue(void)
+{
+    mktxlo_self_load(false);
 }

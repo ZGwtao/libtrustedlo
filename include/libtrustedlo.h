@@ -200,6 +200,8 @@ typedef void (*entry_fn_t)(const trampoline_args_t *);
     } while (0)
 
 void mktxlo_self_load_entry(void);
+void mktxlo_self_load_entry_pancake(void);
+void mktxlo_self_load_continue(void);
 
 void mktxlo_prepare_xrt_req_list(void *base, const trustedlo_xrtreq_t *req);
 void mktxlo_privilege_template_pd(seL4_Word cid);

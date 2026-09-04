@@ -1,0 +1,145 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#define PROTOCON_IMAGE_MAGIC       1346586957
+#define PROTOCON_MKTSYMB_OFFSET    8
+#define PROTOCON_ELF_OFFSET        24
+
+/* "MKTSYMB\0" */
+#define MKTSYMB_MAGIC_0            77
+#define MKTSYMB_MAGIC_1            75
+#define MKTSYMB_MAGIC_2            84
+#define MKTSYMB_MAGIC_3            83
+#define MKTSYMB_MAGIC_4            89
+#define MKTSYMB_MAGIC_5            77
+#define MKTSYMB_MAGIC_6            66
+#define MKTSYMB_MAGIC_7            0
+
+/* "\x7fELF" */
+#define ELF_MAGIC_0                127
+#define ELF_MAGIC_1                69
+#define ELF_MAGIC_2                76
+#define ELF_MAGIC_3                70
+
+inline fun mktxlo_client_image_region(1 image, 1 offset_field)
+{
+    var offset = 0;
+    !ldw offset, image + offset_field;
+    var region = image + offset;
+    return region;
+}
+
+inline fun mktxlo_client_image_mktsymb(1 image)
+{
+    return mktxlo_client_image_region(image, PROTOCON_MKTSYMB_OFFSET);
+}
+
+inline fun mktxlo_client_image_elf(1 image)
+{
+    return mktxlo_client_image_region(image, PROTOCON_ELF_OFFSET);
+}
+
+fun mktxlo_client_image_check_magic(1 image)
+{
+    var error = 0 - 1;
+    /* Check payload image magic */
+    var magic = 0;
+    !ld32 magic, image;
+    if (magic != PROTOCON_IMAGE_MAGIC) {
+        return error;
+    }
+    return 0;
+}
+
+fun mktxlo_payload_check_mktsymb(1 mktsymb)
+{
+    var error = 0 - 1;
+    var byte = 0;
+
+    !ld8 byte, mktsymb;
+    if (byte != MKTSYMB_MAGIC_0) { return error; }
+    !ld8 byte, mktsymb + 1;
+    if (byte != MKTSYMB_MAGIC_1) { return error; }
+    !ld8 byte, mktsymb + 2;
+    if (byte != MKTSYMB_MAGIC_2) { return error; }
+    !ld8 byte, mktsymb + 3;
+    if (byte != MKTSYMB_MAGIC_3) { return error; }
+    !ld8 byte, mktsymb + 4;
+    if (byte != MKTSYMB_MAGIC_4) { return error; }
+    !ld8 byte, mktsymb + 5;
+    if (byte != MKTSYMB_MAGIC_5) { return error; }
+    !ld8 byte, mktsymb + 6;
+    if (byte != MKTSYMB_MAGIC_6) { return error; }
+    !ld8 byte, mktsymb + 7;
+    if (byte != MKTSYMB_MAGIC_7) { return error; }
+
+    return 0;
+}
+
+fun mktxlo_payload_check_elf_magic(1 elf)
+{
+    var error = 0 - 1;
+    var byte = 0;
+
+    !ld8 byte, elf;
+    if (byte != ELF_MAGIC_0) { return error; }
+    !ld8 byte, elf + 1;
+    if (byte != ELF_MAGIC_1) { return error; }
+    !ld8 byte, elf + 2;
+    if (byte != ELF_MAGIC_2) { return error; }
+    !ld8 byte, elf + 3;
+    if (byte != ELF_MAGIC_3) { return error; }
+
+    return 0;
+}
+
+fun mktxlo_client_image_check_integrity(1 image)
+{
+
+    var r = mktxlo_client_image_check_magic(image);
+    if (r != 0) {
+        return r;
+    }
+
+    /* Check Microkit Symbol magic */
+    var mktsymb = mktxlo_client_image_mktsymb(image);
+
+    r = mktxlo_payload_check_mktsymb(mktsymb);
+    if (r != 0) {
+        return r;
+    }
+
+    /* Check executable's magic */
+    var elf = mktxlo_client_image_elf(image);
+
+    r = mktxlo_payload_check_elf_magic(elf);
+    if (r != 0) {
+        return r;
+    }
+
+    return 0;
+}
+
+fun mktxlo_self_load_entry_pancake()
+{
+    var client_image = lds 1 @base;
+    var trampo_image = lds 1 (@base + @biw);
+
+    var r =
+        mktxlo_client_image_check_integrity(client_image);
+    /* If r != 0, ffi stops going into the C self-ld */
+    if (r == 0) {
+        r = mktxlo_payload_check_elf_magic(trampo_image);
+    }
+    /* The remaining self-load path is still implemented in C. */
+    @mktxlo_self_load_continue(0, r, 0, 0);
+    return 0;
+}
+
+fun main()
+{
+    return mktxlo_self_load_entry_pancake();
+}

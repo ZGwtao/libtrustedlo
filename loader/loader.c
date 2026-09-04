@@ -5,6 +5,7 @@
  */
 
 #include <libtrustedlo.h>
+#include <tsldr_vm_layout.h>
 
 #define PANCAKE_HEAP_SIZE (10 * 1024)
 #define PANCAKE_STACK_SIZE (10 * 1024)
@@ -40,20 +41,30 @@ void cml_clear(void)
 {
 }
 
-void ffitrustedlo_hello(unsigned char *c, long clen, unsigned char *a, long alen)
+void ffimktxlo_self_load_continue(unsigned char *c, long result, unsigned char *a, long alen)
 {
     (void)c;
-    (void)clen;
     (void)a;
     (void)alen;
-    microkit_dbg_puts("libtrustedlo: hello from Pancake\n");
+
+    if (result != seL4_NoError) {
+        microkit_dbg_puts("libtrustedlo: Pancake client image integrity check failed\n");
+        return;
+    }
+
+    microkit_dbg_puts("libtrustedlo: Pancake client image integrity check passed\n");
+    mktxlo_self_load_continue();
+}
+
+void mktxlo_self_load_entry_pancake(void)
+{
+    pancake_init();
+    ((uintptr_t *)cml_heap)[0] = tsldr_vm_layout.container_image.base;
+    ((uintptr_t *)cml_heap)[1] = tsldr_vm_layout.trampoline_image.base;
+    cml_main();
 }
 
 void loader_entry(void)
 {
-    pancake_init();
-    cml_main();
-
-    /* Trusted loading main function. */
-    mktxlo_self_load_entry();
+    mktxlo_self_load_entry_pancake();
 }
