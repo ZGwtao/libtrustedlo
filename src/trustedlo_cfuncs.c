@@ -414,8 +414,6 @@ void ffimktxlo_self_load_finish(unsigned char *c, long result, unsigned char *a,
         (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
 
     microkit_dbg_puts("libtrustedlo: Pancake payload load passed\n");
-    TSLDR_ASSERT(mktxlo_client_patch_symbols(tsldr_vm_layout.container_image.base) ==
-                 seL4_NoError);
     TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, trampo_args));
     TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, client_args));
 

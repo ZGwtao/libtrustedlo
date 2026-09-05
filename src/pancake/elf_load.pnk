@@ -19,6 +19,149 @@
 #define ELF_PHDR_MEMSZ_OFFSET       40
 #define ELF_PT_LOAD                 1
 
+#define ELF_SHOFF_OFFSET            40
+#define ELF_SHENTSIZE_OFFSET        58
+#define ELF_SHNUM_OFFSET            60
+#define ELF_SH_TYPE_OFFSET          4
+#define ELF_SH_OFFSET_OFFSET        24
+#define ELF_SH_SIZE_OFFSET          32
+#define ELF_SH_LINK_OFFSET          40
+#define ELF_SHT_SYMTAB              2
+#define ELF_SYM_SIZE                24
+#define ELF_SYM_NAME_OFFSET         0
+#define ELF_SYM_VALUE_OFFSET        8
+
+inline fun mktxlo_elf_name_equal(1 lhs, 1 rhs, 1 length)
+{
+    var result = mktxlo_memcmp(lhs, rhs, length);
+    if (result != 0) {
+        return 0;
+    }
+    var terminator = 0;
+    !ld8 terminator, lhs + length;
+    if (terminator != 0) {
+        return 0;
+    }
+    return 1;
+}
+
+inline fun mktxlo_elf_symbol_name(1 strtab, 1 symbol)
+{
+    var name_offset = 0;
+    !ld32 name_offset, symbol + ELF_SYM_NAME_OFFSET;
+    return strtab + name_offset;
+}
+
+inline fun mktxlo_elf_symbol_value(1 symbol)
+{
+    var value = 0;
+    !ldw value, symbol + ELF_SYM_VALUE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_shoff(1 elf)
+{
+    var value = 0;
+    !ldw value, elf + ELF_SHOFF_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_shentsize(1 elf)
+{
+    var value = 0;
+    !ld16 value, elf + ELF_SHENTSIZE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_shnum(1 elf)
+{
+    var value = 0;
+    !ld16 value, elf + ELF_SHNUM_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_shdr(1 elf, 1 shoff, 1 shentsize, 1 index)
+{
+    return elf + shoff + index * shentsize;
+}
+
+inline fun mktxlo_elf_sh_type(1 shdr)
+{
+    var value = 0;
+    !ld32 value, shdr + ELF_SH_TYPE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_sh_offset(1 shdr)
+{
+    var value = 0;
+    !ldw value, shdr + ELF_SH_OFFSET_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_sh_size(1 shdr)
+{
+    var value = 0;
+    !ldw value, shdr + ELF_SH_SIZE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_sh_link(1 shdr)
+{
+    var value = 0;
+    !ld32 value, shdr + ELF_SH_LINK_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_symtab_symbol(1 elf, 1 symoff, 1 sym_offset)
+{
+    return elf + symoff + sym_offset;
+}
+
+inline fun mktxlo_elf_find_symtab_symbol(1 elf, 1 symoff, 1 symsz,
+                                         1 strtab, 1 name, 1 name_len)
+{
+    var sym_offset = 0;
+    while (sym_offset < symsz) {
+        var symbol = mktxlo_elf_symtab_symbol(elf, symoff, sym_offset);
+        var sym_name = mktxlo_elf_symbol_name(elf + strtab, symbol);
+        var equal = mktxlo_elf_name_equal(sym_name, name, name_len);
+        if (equal != 0) {
+            return mktxlo_elf_symbol_value(symbol);
+        }
+        sym_offset = sym_offset + ELF_SYM_SIZE;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_find_symbol(1 elf, 1 name, 1 name_len)
+{
+    var shoff = mktxlo_elf_shoff(elf);
+    var shentsize = mktxlo_elf_shentsize(elf);
+    var shnum = mktxlo_elf_shnum(elf);
+
+    var section_index = 0;
+    while (section_index < shnum) {
+        var shdr = mktxlo_elf_shdr(elf, shoff, shentsize, section_index);
+        var sh_type = mktxlo_elf_sh_type(shdr);
+        if (sh_type == ELF_SHT_SYMTAB) {
+            var symoff = mktxlo_elf_sh_offset(shdr);
+            var symsz = mktxlo_elf_sh_size(shdr);
+            var str_index = mktxlo_elf_sh_link(shdr);
+
+            var strhdr = mktxlo_elf_shdr(elf, shoff, shentsize, str_index);
+            var strtab = mktxlo_elf_sh_offset(strhdr);
+            var value = mktxlo_elf_find_symtab_symbol(elf, symoff, symsz,
+                                                      strtab, name, name_len);
+            if (value != 0) {
+                return value;
+            }
+        }
+        section_index = section_index + 1;
+    }
+    return 0;
+}
+
 inline fun mktxlo_elf_check_entry(1 elf, 1 load_vaddr, 1 load_size)
 {
     var error = -1;

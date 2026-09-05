@@ -1,0 +1,109 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#define PROTOCON_MKTSYMB_OFFSET 8
+#define PROTOCON_ELF_OFFSET     24
+
+#define MKS_NAME_LEN_OFFSET     8
+#define MKS_SYMBOL_CNT_OFFSET   10
+#define MKS_HEADER_SIZE         14
+#define MKS_SYMBOL_HDR_SIZE     16
+#define MKS_SYMBOL_NAME_LEN     0
+#define MKS_SYMBOL_DATA_LEN     4
+
+inline fun mktxlo_client_image_region(1 image, 1 offset_field)
+{
+    var offset = 0;
+    !ldw offset, image + offset_field;
+    return image + offset;
+}
+
+inline fun mktxlo_client_image_mktsymb(1 image)
+{
+    return mktxlo_client_image_region(image, PROTOCON_MKTSYMB_OFFSET);
+}
+
+inline fun mktxlo_client_image_elf(1 image)
+{
+    return mktxlo_client_image_region(image, PROTOCON_ELF_OFFSET);
+}
+
+inline fun mktxlo_mktsymb_name_len(1 mktsymb)
+{
+    var name_len = 0;
+    !ld16 name_len, mktsymb + MKS_NAME_LEN_OFFSET;
+    return name_len;
+}
+
+inline fun mktxlo_mktsymb_symbol_count(1 mktsymb)
+{
+    var symbol_count = 0;
+    !ld32 symbol_count, mktsymb + MKS_SYMBOL_CNT_OFFSET;
+    return symbol_count;
+}
+
+inline fun mktxlo_mktsymb_first_symbol(1 mktsymb)
+{
+    var name_len = mktxlo_mktsymb_name_len(mktsymb);
+    return mktsymb + MKS_HEADER_SIZE + name_len;
+}
+
+inline fun mktxlo_client_patch_symbol(1 elf, 1 symbol)
+{
+    var name_len = mktxlo_mktsymb_symbol_name_len(symbol);
+    var data_len = mktxlo_mktsymb_symbol_data_len(symbol);
+
+    var name = symbol + MKS_SYMBOL_HDR_SIZE;
+    var data = name + name_len;
+    var value = mktxlo_elf_find_symbol(elf, name, name_len);
+    if (value == 0) {
+        return -1;
+    }
+    mktxlo_memcpy(value, data, data_len);
+    return 0;
+}
+
+inline fun mktxlo_mktsymb_symbol_name_len(1 symbol)
+{
+    var name_len = 0;
+    !ld16 name_len, symbol + MKS_SYMBOL_NAME_LEN;
+    return name_len;
+}
+
+inline fun mktxlo_mktsymb_symbol_data_len(1 symbol)
+{
+    var data_len = 0;
+    !ld32 data_len, symbol + MKS_SYMBOL_DATA_LEN;
+    return data_len;
+}
+
+inline fun mktxlo_mktsymb_symbol_next(1 symbol)
+{
+    var name_len = mktxlo_mktsymb_symbol_name_len(symbol);
+    var data_len = mktxlo_mktsymb_symbol_data_len(symbol);
+    return symbol + MKS_SYMBOL_HDR_SIZE + name_len + data_len;
+}
+
+inline fun mktxlo_client_patch_symbols(1 image)
+{
+    var error = -1;
+    var mktsymb = mktxlo_client_image_mktsymb(image);
+    var elf = mktxlo_client_image_elf(image);
+    var symbol_cnt = mktxlo_mktsymb_symbol_count(mktsymb);
+    var symbol = mktxlo_mktsymb_first_symbol(mktsymb);
+
+    var index = 0;
+    while (index < symbol_cnt) {
+        var result = mktxlo_client_patch_symbol(elf, symbol);
+        if (result != 0) {
+            return error;
+        }
+
+        symbol = mktxlo_mktsymb_symbol_next(symbol);
+        index = index + 1;
+    }
+    return 0;
+}

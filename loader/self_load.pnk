@@ -7,31 +7,11 @@
 #include "pancake_args.h"
 
 #define PROTOCON_IMAGE_MAGIC       1346586957
-#define PROTOCON_MKTSYMB_OFFSET    8
-#define PROTOCON_ELF_OFFSET        24
 
 inline fun pancake_arg(1 index)
 {
     var value = lds 1 (@base + index * @biw);
     return value;
-}
-
-inline fun mktxlo_client_image_region(1 image, 1 offset_field)
-{
-    var offset = 0;
-    !ldw offset, image + offset_field;
-    var region = image + offset;
-    return region;
-}
-
-inline fun mktxlo_client_image_mktsymb(1 image)
-{
-    return mktxlo_client_image_region(image, PROTOCON_MKTSYMB_OFFSET);
-}
-
-inline fun mktxlo_client_image_elf(1 image)
-{
-    return mktxlo_client_image_region(image, PROTOCON_ELF_OFFSET);
 }
 
 fun mktxlo_client_image_check_magic(1 image)
@@ -108,6 +88,9 @@ fun mktxlo_self_load_entry_pancake()
         !ldw client_elf_size, client_image + PROTOCON_ELF_SIZE;
         r = mktxlo_payload_load(client_elf, client_elf_size, client_prog_base,
                                 client_prog_vaddr, client_prog_size);
+        if (r == 0) {
+            r = mktxlo_client_patch_symbols(client_image);
+        }
     }
     if (r == 0) {
         var trampo_image_size = pancake_arg(PNK_ARG_TRAMPO_IMAGE_SIZE);
