@@ -147,10 +147,16 @@ static inline seL4_Error mktxlo_client_image_check_integrity(uintptr_t image)
     return mktxlo_payload_check_integrity((uintptr_t)mktxlo_client_image_elf(image));
 }
 
-static inline seL4_Error mktxlo_payload_load(void *base)
+static inline seL4_Error mktxlo_payload_load(const Elf64_Ehdr *ehdr,
+                                             size_t elf_size,
+                                             void *load_base,
+                                             uintptr_t load_vaddr,
+                                             size_t load_size)
 {
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)base;
-    tsldr_miscutil_load_elf((void *)(ehdr->e_entry), ehdr);
+    if (!tsldr_miscutil_load_elf(ehdr, elf_size, load_base, load_vaddr, load_size)) {
+        return -1;
+    }
+
     return seL4_NoError;
 }
 
@@ -222,9 +228,14 @@ static inline seL4_Error mktxlo_client_patch_symbols(uintptr_t image)
 
 static inline seL4_Error mktxlo_client_image_load(uintptr_t image)
 {
+    protocon_image_header_t *header = (protocon_image_header_t *)image;
     Elf64_Ehdr *ehdr = mktxlo_client_image_elf(image);
 
-    TRY_OR_RETURN_ERROR(mktxlo_payload_load(ehdr));
+    TRY_OR_RETURN_ERROR(mktxlo_payload_load(ehdr,
+                                            header->elf_size,
+                                            (void *)tsldr_vm_layout.container_program.base,
+                                            tsldr_vm_layout.container_program.base,
+                                            tsldr_vm_layout.container_program.size));
     TRY_OR_RETURN_ERROR(mktxlo_client_patch_symbols(image));
 
     return seL4_NoError;
@@ -388,7 +399,11 @@ static void mktxlo_self_load(bool check_client_image)
     TRY_OR_RETURN_VOID(mktxlo_context_switch(txlo_info, context, xrt_req_header));
 
     TRY_OR_RETURN_VOID(mktxlo_client_image_load(client_elf));
-    TRY_OR_RETURN_VOID(mktxlo_payload_load((Elf64_Ehdr *)trampo_elf));
+    TRY_OR_RETURN_VOID(mktxlo_payload_load((const Elf64_Ehdr *)trampo_elf,
+                                           tsldr_vm_layout.trampoline_image.size,
+                                           (void *)tsldr_vm_layout.trampoline_program.base,
+                                           tsldr_vm_layout.trampoline_program.base,
+                                           tsldr_vm_layout.trampoline_program.size));
 
     TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, trampo_args));
     TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, client_args));

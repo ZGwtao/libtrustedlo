@@ -18,7 +18,11 @@
 
 void tsldr_miscutil_dbg_print(const char *format, ...);
 
-void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
+bool tsldr_miscutil_load_elf(const Elf64_Ehdr *ehdr,
+                             size_t elf_size,
+                             void *load_base,
+                             uintptr_t load_vaddr,
+                             size_t load_size);
 
 #ifdef CONFIG_DEBUG_BUILD
 #define TSLDR_DBG_PRINT(...)                                                                       \
