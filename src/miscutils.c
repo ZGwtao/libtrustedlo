@@ -200,17 +200,49 @@ void tsldr_miscutil_dbg_print(const char *format, ...)
     va_end(args);
 }
 
-void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)
+bool tsldr_miscutil_load_elf(const Elf64_Ehdr *ehdr,
+                             size_t elf_size,
+                             void *load_base,
+                             uintptr_t load_vaddr,
+                             size_t load_size)
 {
-    Elf64_Phdr *phdr = (Elf64_Phdr *)((char *)ehdr + ehdr->e_phoff);
+    if (ehdr->e_phentsize != sizeof(Elf64_Phdr) || ehdr->e_phoff > elf_size ||
+        (size_t)ehdr->e_phnum > (elf_size - (size_t)ehdr->e_phoff) / sizeof(Elf64_Phdr)) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid ELF program-header table\n");
+        return false;
+    }
 
-    for (int i = 0; i < ehdr->e_phnum; i++) {
+    if (ehdr->e_entry < load_vaddr || ehdr->e_entry - load_vaddr >= load_size) {
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF entry is outside the load region\n");
+        return false;
+    }
+
+    const Elf64_Phdr *phdr = (const Elf64_Phdr *)((const char *)ehdr + ehdr->e_phoff);
+
+    for (Elf64_Half i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type != PT_LOAD) {
             continue;
         }
 
-        void *src = (char *)ehdr + phdr[i].p_offset;
-        void *dest = (void *)(dest_vaddr + phdr[i].p_vaddr - ehdr->e_entry);
+        if (phdr[i].p_filesz > phdr[i].p_memsz || phdr[i].p_offset > elf_size ||
+            phdr[i].p_filesz > elf_size - phdr[i].p_offset) {
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid ELF load segment\n");
+            return false;
+        }
+
+        if (phdr[i].p_vaddr < load_vaddr) {
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF load segment is below the load region\n");
+            return false;
+        }
+
+        uint64_t seg_offset = phdr[i].p_vaddr - load_vaddr;
+        if (seg_offset > load_size || phdr[i].p_memsz > load_size - seg_offset) {
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "ELF load segment exceeds the load region\n");
+            return false;
+        }
+
+        const void *src = (const char *)ehdr + phdr[i].p_offset;
+        void *dest = (char *)load_base + seg_offset;
 
         tsldr_miscutil_memcpy(dest, src, phdr[i].p_filesz);
 
@@ -219,6 +251,8 @@ void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)
             tsldr_miscutil_memset((char *)dest + phdr[i].p_filesz, 0, bss_size);
         }
     }
+
+    return true;
 }
 
 void *tsldr_miscutil_find_section_from_elf(void *elf_base, char section[])
