@@ -84,6 +84,8 @@ PANCAKE_FLAGS := \
 	--main_return=true
 
 PNK_ARGS_HDR := $(LIBTRUSTEDLO_PATH)/loader/pancake_args.h
+PNK_MEM_SRC := $(LIBTRUSTEDLO_PATH)/src/pancake/memory.pnk
+PNK_ELF_SRC := $(LIBTRUSTEDLO_PATH)/src/pancake/elf_load.pnk
 
 PANCAKE_SELF_LOAD_SRC := $(LIBTRUSTEDLO_PATH)/loader/self_load.pnk
 PANCAKE_SELF_LOAD_ASM := $(LIB_BUILD_DIR)/self_load_pancake.S
@@ -208,8 +210,8 @@ $(LIB_BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.c  $(VM_LAYOUT_HEADER)
 	@mkdir -p $(dir $@)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
-$(PANCAKE_SELF_LOAD_ASM): $(PANCAKE_SELF_LOAD_SRC) $(PNK_ARGS_HDR) | $(LIB_BUILD_DIR)
-	$(PANCAKE_CPP) -P $< | $(PANCAKE_COMPILER) $(PANCAKE_FLAGS) > $@
+$(PANCAKE_SELF_LOAD_ASM): $(PANCAKE_SELF_LOAD_SRC) $(PNK_ARGS_HDR) $(PNK_MEM_SRC) $(PNK_ELF_SRC) | $(LIB_BUILD_DIR)
+	$(PANCAKE_CPP) -P -include $(PNK_MEM_SRC) -include $(PNK_ELF_SRC) $< | $(PANCAKE_COMPILER) $(PANCAKE_FLAGS) > $@
 
 $(PANCAKE_SELF_LOAD_OBJ): $(PANCAKE_SELF_LOAD_ASM)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@

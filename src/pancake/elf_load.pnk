@@ -1,0 +1,227 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#define PROTOCON_ELF_SIZE          32
+
+#define ELF_ENTRY_OFFSET            24
+#define ELF_PHOFF_OFFSET            32
+#define ELF_PHENTSIZE_OFFSET        54
+#define ELF_PHNUM_OFFSET            56
+#define ELF_PHDR_SIZE               56
+
+#define ELF_PHDR_TYPE_OFFSET        0
+#define ELF_PHDR_FILE_OFFSET        8
+#define ELF_PHDR_VADDR_OFFSET       16
+#define ELF_PHDR_FILESZ_OFFSET      32
+#define ELF_PHDR_MEMSZ_OFFSET       40
+#define ELF_PT_LOAD                 1
+
+inline fun mktxlo_elf_check_entry(1 elf, 1 load_vaddr, 1 load_size)
+{
+    var error = -1;
+    var entry = 0;
+    !ldw entry, elf + ELF_ENTRY_OFFSET;
+    if (entry < load_vaddr || entry - load_vaddr >= load_size) {
+        return error;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_check_phdr_table(1 elf, 1 elf_size)
+{
+    var error = -1;
+    var phentsize = mktxlo_elf_phentsize(elf);
+    if (phentsize != ELF_PHDR_SIZE) {
+        return error;
+    }
+
+    var phoff = mktxlo_elf_phoff(elf);
+    var phnum = mktxlo_elf_phnum(elf);
+    var result = mktxlo_elf_check_phdr_range(phoff, phnum, elf_size);
+    if (result != 0) {
+        return error;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_phoff(1 elf)
+{
+    var phoff = 0;
+    !ldw phoff, elf + ELF_PHOFF_OFFSET;
+    return phoff;
+}
+
+inline fun mktxlo_elf_phentsize(1 elf)
+{
+    var phentsize = 0;
+    !ld16 phentsize, elf + ELF_PHENTSIZE_OFFSET;
+    return phentsize;
+}
+
+inline fun mktxlo_elf_phnum(1 elf)
+{
+    var phnum = 0;
+    !ld16 phnum, elf + ELF_PHNUM_OFFSET;
+    return phnum;
+}
+
+inline fun mktxlo_elf_phdr(1 elf, 1 phoff, 1 index)
+{
+    return elf + phoff + index * ELF_PHDR_SIZE;
+}
+
+inline fun mktxlo_elf_check_phdr_range(1 phoff, 1 phnum, 1 elf_size)
+{
+    var error = -1;
+    /* phnum is a 16-bit ELF field, so this multiplication cannot overflow. */
+    if (phoff > elf_size || phnum * ELF_PHDR_SIZE > elf_size - phoff) {
+        return error;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_phdr_type(1 phdr)
+{
+    var type = 0;
+    !ld32 type, phdr + ELF_PHDR_TYPE_OFFSET;
+    return type;
+}
+
+inline fun mktxlo_elf_phdr_file_offset(1 phdr)
+{
+    var value = 0;
+    !ldw value, phdr + ELF_PHDR_FILE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_phdr_vaddr(1 phdr)
+{
+    var value = 0;
+    !ldw value, phdr + ELF_PHDR_VADDR_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_phdr_filesz(1 phdr)
+{
+    var value = 0;
+    !ldw value, phdr + ELF_PHDR_FILESZ_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_phdr_memsz(1 phdr)
+{
+    var value = 0;
+    !ldw value, phdr + ELF_PHDR_MEMSZ_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_elf_check_file_range(1 file_offset, 1 filesz, 1 elf_size)
+{
+    var error = -1;
+    if (file_offset > elf_size || filesz > elf_size - file_offset) {
+        return error;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_check_seg_range(1 vaddr, 1 memsz,
+                                      1 load_vaddr, 1 load_size)
+{
+    var error = -1;
+    if (vaddr < load_vaddr) {
+        return error;
+    }
+    var seg_offset = vaddr - load_vaddr;
+    if (seg_offset > load_size || memsz > load_size - seg_offset) {
+        return error;
+    }
+    return 0;
+}
+
+inline fun mktxlo_elf_seg_offset(1 vaddr, 1 load_vaddr)
+{
+    return vaddr - load_vaddr;
+}
+
+inline fun mktxlo_elf_load_segment(1 elf, 1 file_offset, 1 filesz,
+                                   1 load_base, 1 seg_offset, 1 memsz)
+{
+    var dest = load_base + seg_offset;
+    mktxlo_memcpy(dest, elf + file_offset, filesz);
+    mktxlo_memzero(dest + filesz, memsz - filesz);
+    return 0;
+}
+
+inline fun mktxlo_elf_load_phdr(1 elf, 1 phdr, 1 elf_size, 1 load_base,
+                                1 load_vaddr, 1 load_size)
+{
+    var error = -1;
+    var type = mktxlo_elf_phdr_type(phdr);
+    if (type != ELF_PT_LOAD) {
+        return 0;
+    }
+
+    var file_offset = mktxlo_elf_phdr_file_offset(phdr);
+    var vaddr = mktxlo_elf_phdr_vaddr(phdr);
+    var filesz = mktxlo_elf_phdr_filesz(phdr);
+    var memsz = mktxlo_elf_phdr_memsz(phdr);
+    if (filesz > memsz) {
+        return error;
+    }
+
+    var result = mktxlo_elf_check_file_range(file_offset, filesz, elf_size);
+    if (result != 0) {
+        return error;
+    }
+    result = mktxlo_elf_check_seg_range(vaddr, memsz, load_vaddr, load_size);
+    if (result != 0) {
+        return error;
+    }
+
+    var seg_offset = mktxlo_elf_seg_offset(vaddr, load_vaddr);
+    return mktxlo_elf_load_segment(elf, file_offset, filesz, load_base,
+                                   seg_offset, memsz);
+}
+
+inline fun mktxlo_elf_load_phdrs(1 elf, 1 elf_size, 1 load_base,
+                                 1 load_vaddr, 1 load_size)
+{
+    var error = -1;
+    var phoff = mktxlo_elf_phoff(elf);
+    var phnum = mktxlo_elf_phnum(elf);
+
+    var index = 0;
+    while (index < phnum) {
+        var phdr = mktxlo_elf_phdr(elf, phoff, index);
+        var result = mktxlo_elf_load_phdr(elf, phdr, elf_size, load_base,
+                                          load_vaddr, load_size);
+        if (result != 0) {
+            return error;
+        }
+        index = index + 1;
+    }
+    return 0;
+}
+
+/* Load PT_LOAD segments into the loader's mapping of the target region. */
+fun mktxlo_payload_load(1 elf, 1 elf_size, 1 load_base, 1 load_vaddr, 1 load_size)
+{
+    var error = -1;
+    var result = mktxlo_elf_check_entry(elf, load_vaddr, load_size);
+    if (result != 0) {
+        return error;
+    }
+    result = mktxlo_elf_check_phdr_table(elf, elf_size);
+    if (result != 0) {
+        return error;
+    }
+
+    result = mktxlo_elf_load_phdrs(elf, elf_size, load_base, load_vaddr, load_size);
+    if (result != 0) {
+        return error;
+    }
+    return 0;
+}

@@ -51,21 +51,6 @@ void cml_clear(void)
 {
 }
 
-void ffimktxlo_self_load_continue(unsigned char *c, long result, unsigned char *a, long alen)
-{
-    (void)c;
-    (void)a;
-    (void)alen;
-
-    if (result != seL4_NoError) {
-        microkit_dbg_puts("libtrustedlo: Pancake client image integrity check failed\n");
-        return;
-    }
-
-    microkit_dbg_puts("libtrustedlo: Pancake client image integrity check passed\n");
-    mktxlo_self_load_continue();
-}
-
 void mktxlo_self_load_entry_pancake(void)
 {
     pancake_init();
@@ -75,6 +60,13 @@ void mktxlo_self_load_entry_pancake(void)
     args[PNK_ARG_TRAMPO_IMAGE] = tsldr_vm_layout.trampoline_image.base;
     args[PNK_ARG_MKS_MAGIC] = (uintptr_t)pnk_mktsymb_magic;
     args[PNK_ARG_ELF_MAGIC] = (uintptr_t)pnk_elf_magic;
+    args[PNK_ARG_CLIENT_PROG_BASE] = tsldr_vm_layout.container_program.base;
+    args[PNK_ARG_CLIENT_PROG_VADDR] = tsldr_vm_layout.container_program.base;
+    args[PNK_ARG_CLIENT_PROG_SIZE] = tsldr_vm_layout.container_program.size;
+    args[PNK_ARG_TRAMPO_PROG_BASE] = tsldr_vm_layout.trampoline_program.base;
+    args[PNK_ARG_TRAMPO_PROG_VADDR] = tsldr_vm_layout.trampoline_program.base;
+    args[PNK_ARG_TRAMPO_PROG_SIZE] = tsldr_vm_layout.trampoline_program.size;
+    args[PNK_ARG_TRAMPO_IMAGE_SIZE] = tsldr_vm_layout.trampoline_image.size;
 
     cml_main();
 }

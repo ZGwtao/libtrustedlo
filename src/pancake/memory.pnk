@@ -1,0 +1,45 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+inline fun mktxlo_memcmp(1 lhs, 1 rhs, 1 length)
+{
+    var error = -1;
+    var index = 0;
+    var lhs_byte = 0;
+    var rhs_byte = 0;
+
+    while (index < length) {
+        !ld8 lhs_byte, lhs + index;
+        !ld8 rhs_byte, rhs + index;
+        if (lhs_byte != rhs_byte) {
+            return error;
+        }
+        index = index + 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_memcpy(1 dest, 1 src, 1 length)
+{
+    var index = 0;
+    var byte = 0;
+    while (index < length) {
+        !ld8 byte, src + index;
+        !st8 dest + index, byte;
+        index = index + 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_memzero(1 dest, 1 length)
+{
+    var index = 0;
+    while (index < length) {
+        !st8 dest + index, 0;
+        index = index + 1;
+    }
+    return 0;
+}

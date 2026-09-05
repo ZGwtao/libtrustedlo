@@ -16,27 +16,6 @@ inline fun pancake_arg(1 index)
     return value;
 }
 
-fun mktxlo_memcmp(1 lhs, 1 rhs, 1 length)
-{
-    var error = 0 - 1;
-    var index = 0;
-    var lhs_byte = 0;
-    var rhs_byte = 0;
-
-    /* Compare byte by byte */
-    while (index < length) {
-        !ld8 lhs_byte, lhs + index;
-        !ld8 rhs_byte, rhs + index;
-        /* If values not equal, exit */
-        if (lhs_byte != rhs_byte) {
-            return error;
-        }
-        /* Check next byte */
-        index = index + 1;
-    }
-    return 0;
-}
-
 inline fun mktxlo_client_image_region(1 image, 1 offset_field)
 {
     var offset = 0;
@@ -57,7 +36,7 @@ inline fun mktxlo_client_image_elf(1 image)
 
 fun mktxlo_client_image_check_magic(1 image)
 {
-    var error = 0 - 1;
+    var error = -1;
     /* Check payload image magic */
     var magic = 0;
     !ld32 magic, image;
@@ -117,8 +96,28 @@ fun mktxlo_self_load_entry_pancake()
     if (r == 0) {
         r = mktxlo_payload_check_elf_magic(trampo_image);
     }
-    /* The remaining self-load path is still implemented in C. */
-    @mktxlo_self_load_continue(0, r, 0, 0);
+    if (r == 0) {
+        /* Capability manipulation remains in the C implementation. */
+        @mktxlo_self_load_context_switch(0, 0, 0, 0);
+
+        var client_elf = mktxlo_client_image_elf(client_image);
+        var client_elf_size = 0;
+        var client_prog_base = pancake_arg(PNK_ARG_CLIENT_PROG_BASE);
+        var client_prog_vaddr = pancake_arg(PNK_ARG_CLIENT_PROG_VADDR);
+        var client_prog_size = pancake_arg(PNK_ARG_CLIENT_PROG_SIZE);
+        !ldw client_elf_size, client_image + PROTOCON_ELF_SIZE;
+        r = mktxlo_payload_load(client_elf, client_elf_size, client_prog_base,
+                                client_prog_vaddr, client_prog_size);
+    }
+    if (r == 0) {
+        var trampo_image_size = pancake_arg(PNK_ARG_TRAMPO_IMAGE_SIZE);
+        var trampo_prog_base = pancake_arg(PNK_ARG_TRAMPO_PROG_BASE);
+        var trampo_prog_vaddr = pancake_arg(PNK_ARG_TRAMPO_PROG_VADDR);
+        var trampo_prog_size = pancake_arg(PNK_ARG_TRAMPO_PROG_SIZE);
+        r = mktxlo_payload_load(trampo_image, trampo_image_size, trampo_prog_base,
+                                trampo_prog_vaddr, trampo_prog_size);
+    }
+    @mktxlo_self_load_finish(0, r, 0, 0);
     return 0;
 }
 

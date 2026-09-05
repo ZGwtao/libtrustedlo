@@ -377,6 +377,56 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
     return seL4_NoError;
 }
 
+/* Pancake calls this through FFI; capability operations stay in C. */
+void ffimktxlo_self_load_context_switch(unsigned char *c, long arg, unsigned char *a, long alen)
+{
+    (void)c;
+    (void)arg;
+    (void)a;
+    (void)alen;
+
+    void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
+    void *xrt_req_header = (void *)tsldr_vm_layout.txlo_xrt_req.base;
+    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *)tsldr_vm_layout.loader_context.base;
+
+    if (mktxlo_context_switch(txlo_info, context, xrt_req_header) != seL4_NoError) {
+        microkit_internal_crash(-1);
+    }
+}
+
+/* Pancake calls this after it has loaded both ELF images. */
+void ffimktxlo_self_load_finish(unsigned char *c, long result, unsigned char *a, long alen)
+{
+    (void)c;
+    (void)a;
+    (void)alen;
+
+    if (result != seL4_NoError) {
+        microkit_dbg_puts("libtrustedlo: Pancake payload load failed\n");
+        return;
+    }
+
+    void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
+    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *)tsldr_vm_layout.loader_context.base;
+    uintptr_t trampo_elf = tsldr_vm_layout.trampoline_image.base;
+    trampoline_args_t *trampo_args = (trampoline_args_t *)(tsldr_vm_layout.trampoline_args.base);
+    client_args_t *client_args =
+        (client_args_t *)((unsigned char *)trampo_args + sizeof(trampoline_args_t));
+
+    microkit_dbg_puts("libtrustedlo: Pancake payload load passed\n");
+    TSLDR_ASSERT(mktxlo_client_patch_symbols(tsldr_vm_layout.container_image.base) ==
+                 seL4_NoError);
+    TRY_OR_RETURN_VOID(mktxlo_fill_tramp_args(context, trampo_args));
+    TRY_OR_RETURN_VOID(mktxlo_fill_client_args(txlo_info, context, client_args));
+
+    uintptr_t tramp_entry = ((Elf64_Ehdr *)trampo_elf)->e_entry;
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Switch to the trampoline's code to execute: "
+                                   "stack: %x, entry: %x\n",
+                    (void *)(TSLDR_VM_TRAMPOLINE_STACK_END),
+                    (void *)tramp_entry);
+    mktxlo_jumpto((void *)(TSLDR_VM_TRAMPOLINE_STACK_END), (entry_fn_t)tramp_entry, trampo_args);
+}
+
 static void mktxlo_self_load(bool check_client_image)
 {
     void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
