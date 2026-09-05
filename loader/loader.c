@@ -67,6 +67,9 @@ void mktxlo_self_load_entry_pancake(void)
     args[PNK_ARG_TRAMPO_PROG_VADDR] = tsldr_vm_layout.trampoline_program.base;
     args[PNK_ARG_TRAMPO_PROG_SIZE] = tsldr_vm_layout.trampoline_program.size;
     args[PNK_ARG_TRAMPO_IMAGE_SIZE] = tsldr_vm_layout.trampoline_image.size;
+    args[PNK_ARG_TXLO_INFO] = tsldr_vm_layout.loader_metadata.base;
+    args[PNK_ARG_CONTEXT] = tsldr_vm_layout.loader_context.base;
+    args[PNK_ARG_XRT_REQ] = tsldr_vm_layout.txlo_xrt_req.base;
 
     cml_main();
 }

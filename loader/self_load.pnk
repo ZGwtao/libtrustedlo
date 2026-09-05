@@ -77,9 +77,13 @@ fun mktxlo_self_load_entry_pancake()
         r = mktxlo_payload_check_elf_magic(trampo_image);
     }
     if (r == 0) {
-        /* Capability manipulation remains in the C implementation. */
-        @mktxlo_self_load_context_switch(0, 0, 0, 0);
+        var txlo_info = pancake_arg(PNK_ARG_TXLO_INFO);
+        var context = pancake_arg(PNK_ARG_CONTEXT);
+        var xrt_req = pancake_arg(PNK_ARG_XRT_REQ);
+        r = mktxlo_context_switch(txlo_info, context, xrt_req);
+    }
 
+    if (r == 0) {
         var client_elf = mktxlo_client_image_elf(client_image);
         var client_elf_size = 0;
         var client_prog_base = pancake_arg(PNK_ARG_CLIENT_PROG_BASE);
@@ -88,10 +92,12 @@ fun mktxlo_self_load_entry_pancake()
         !ldw client_elf_size, client_image + PROTOCON_ELF_SIZE;
         r = mktxlo_payload_load(client_elf, client_elf_size, client_prog_base,
                                 client_prog_vaddr, client_prog_size);
-        if (r == 0) {
-            r = mktxlo_client_patch_symbols(client_image);
-        }
     }
+
+    if (r == 0) {
+        r = mktxlo_client_patch_symbols(client_image);
+    }
+
     if (r == 0) {
         var trampo_image_size = pancake_arg(PNK_ARG_TRAMPO_IMAGE_SIZE);
         var trampo_prog_base = pancake_arg(PNK_ARG_TRAMPO_PROG_BASE);

@@ -1,0 +1,315 @@
+/*
+ * SPDX-FileCopyrightText: 2026 UNSW
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+/* trustedlo_ctxt_t monitor-initialised fields. */
+#define CTXT_SWITCH_COUNT_OFFSET 8
+
+/* Context switch lifecycle. */
+#define CTXT_FIRST_SWITCH 0
+#define CTXT_INITIAL_SWITCH_COUNT 1
+
+/* Result of preparing one channel for restoration. */
+#define CTXT_RESTORE_SKIP 0
+#define CTXT_RESTORE_CAP 1
+
+/* Keep Pancake's four-argument FFI convention out of the switch logic. */
+inline fun mktxlo_cap_revoke_notification(1 channel)
+{
+    @trustedlo_cap_util_revoke_notification_cap(channel, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_restore_notification(1 channel)
+{
+    @trustedlo_cap_util_restore_notification_cap(channel, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_revoke_ppc(1 channel)
+{
+    @trustedlo_cap_util_revoke_ppc_cap(channel, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_restore_ppc(1 channel)
+{
+    @trustedlo_cap_util_restore_ppc_cap(channel, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_grant_vspace_access()
+{
+    @trustedlo_cap_util_pd_grant_vspace_access(0, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_revoke_vspace_access()
+{
+    @trustedlo_cap_util_pd_revoke_vspace_access(0, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_deprivilege()
+{
+    @trustedlo_cap_util_pd_deprivilege(0, 0, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_revoke_mapping(1 resource)
+{
+    var page = mktxlo_dlg_resource_slot(resource);
+    var pages = mktxlo_dlg_resource_cap_count(resource);
+    @trustedlo_cap_util_pd_revoke_page_access(page, pages, 0, 0);
+    return 0;
+}
+
+inline fun mktxlo_cap_restore_mapping(1 resource)
+{
+    var page = mktxlo_dlg_resource_slot(resource);
+    var vaddr = mktxlo_dlg_resource_arg0(resource);
+    var pages = mktxlo_dlg_resource_cap_count(resource);
+    @trustedlo_cap_util_pd_grant_page_access(page, vaddr, 0, pages);
+    return 0;
+}
+
+inline fun mktxlo_context_switch_count(1 context)
+{
+    var count = 0;
+    !ldw count, context + CTXT_SWITCH_COUNT_OFFSET;
+    return count;
+}
+
+inline fun mktxlo_context_set_switch_count(1 context, 1 count)
+{
+    !stw context + CTXT_SWITCH_COUNT_OFFSET, count;
+    return 0;
+}
+
+/* The first switch has no previously installed capabilities to revoke. */
+inline fun mktxlo_context_is_first_switch(1 context)
+{
+    var count = mktxlo_context_switch_count(context);
+    if (count == CTXT_FIRST_SWITCH) {
+        mktxlo_context_set_switch_count(context, CTXT_INITIAL_SWITCH_COUNT);
+        return 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_context_activate(1 context)
+{
+    if (context == 0) {
+        return -1;
+    }
+    mktxlo_ctxt_set_mapping_count(context, 0);
+    return 0;
+}
+
+inline fun mktxlo_context_channel_is_delegated(1 info, 1 kind, 1 channel)
+{
+    var resource = mktxlo_find_resource(info, kind, channel);
+    if (resource == 0) {
+        return 0;
+    }
+    return 1;
+}
+
+/* Return true only for an installed capability that still belongs to the PD. */
+inline fun mktxlo_context_should_revoke_channel(1 context, 1 info,
+                                                1 field_offset, 1 kind,
+                                                1 channel)
+{
+    var state = mktxlo_ctxt_state(context, field_offset, channel);
+    if (state != XRT_STATE_USED) {
+        return 0;
+    }
+    return mktxlo_context_channel_is_delegated(info, kind, channel);
+}
+
+/*
+ * KEEP means the old capability can be retained. Any other requested state
+ * must be restored from the backup CNode when its resource is still valid.
+ */
+inline fun mktxlo_context_prepare_channel_restore(1 context, 1 info,
+                                                  1 field_offset, 1 kind,
+                                                  1 channel)
+{
+    var state = mktxlo_ctxt_state(context, field_offset, channel);
+    if (state == XRT_STATE_KEEP) {
+        mktxlo_ctxt_set_state(context, field_offset, channel, XRT_STATE_USED);
+        return CTXT_RESTORE_SKIP;
+    }
+    if (state == XRT_STATE_UNSET) {
+        return CTXT_RESTORE_SKIP;
+    }
+    var delegated = mktxlo_context_channel_is_delegated(info, kind, channel);
+    if (delegated == 0) {
+        return CTXT_RESTORE_SKIP;
+    }
+    return CTXT_RESTORE_CAP;
+}
+
+inline fun mktxlo_context_revoke_notifications(1 context, 1 info)
+{
+    var channel = 0;
+    while (channel < MICROKIT_MAX_CHANNELS) {
+        var revoke = mktxlo_context_should_revoke_channel(
+            context, info, CTXT_NOTIFICATIONS_OFFSET,
+            DLG_KIND_NOTIFICATION, channel);
+        if (revoke != 0) {
+            mktxlo_cap_revoke_notification(channel);
+            mktxlo_ctxt_set_state(context, CTXT_NOTIFICATIONS_OFFSET,
+                                  channel, XRT_STATE_UNSET);
+        }
+        channel = channel + 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_context_revoke_ppcs(1 context, 1 info)
+{
+    var channel = 0;
+    while (channel < MICROKIT_MAX_CHANNELS) {
+        var revoke = mktxlo_context_should_revoke_channel(
+            context, info, CTXT_PPCS_OFFSET, DLG_KIND_PPC, channel);
+        if (revoke != 0) {
+            mktxlo_cap_revoke_ppc(channel);
+            mktxlo_ctxt_set_state(context, CTXT_PPCS_OFFSET,
+                                  channel, XRT_STATE_UNSET);
+        }
+        channel = channel + 1;
+    }
+    return 0;
+}
+
+/* trustedlo_xrt_util_check_irq() rejects every IRQ in the C implementation. */
+inline fun mktxlo_context_revoke_irqs(1 context, 1 info)
+{
+    return 0;
+}
+
+inline fun mktxlo_context_revoke_mappings(1 context)
+{
+    mktxlo_cap_grant_vspace_access();
+    var count = mktxlo_ctxt_mapping_count(context);
+    var index = 0;
+    while (index < count) {
+        var state = mktxlo_ctxt_mapping_state(context, index);
+        if (state == XRT_STATE_USED) {
+            var resource = mktxlo_ctxt_mapping_resource(context, index);
+            mktxlo_cap_revoke_mapping(resource);
+            mktxlo_ctxt_set_mapping_state(context, index, XRT_STATE_UNSET);
+        }
+        index = index + 1;
+    }
+    mktxlo_cap_revoke_vspace_access();
+    return 0;
+}
+
+inline fun mktxlo_context_restore_notifications(1 context, 1 info)
+{
+    var channel = 0;
+    while (channel < MICROKIT_MAX_CHANNELS) {
+        var action = mktxlo_context_prepare_channel_restore(
+            context, info, CTXT_NOTIFICATIONS_OFFSET,
+            DLG_KIND_NOTIFICATION, channel);
+        if (action == CTXT_RESTORE_CAP) {
+            mktxlo_cap_restore_notification(channel);
+            mktxlo_ctxt_set_state(context, CTXT_NOTIFICATIONS_OFFSET,
+                                  channel, XRT_STATE_USED);
+        }
+        channel = channel + 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_context_restore_ppcs(1 context, 1 info)
+{
+    var channel = 0;
+    while (channel < MICROKIT_MAX_CHANNELS) {
+        var action = mktxlo_context_prepare_channel_restore(
+            context, info, CTXT_PPCS_OFFSET, DLG_KIND_PPC, channel);
+        if (action == CTXT_RESTORE_CAP) {
+            mktxlo_cap_restore_ppc(channel);
+            mktxlo_ctxt_set_state(context, CTXT_PPCS_OFFSET,
+                                  channel, XRT_STATE_USED);
+        }
+        channel = channel + 1;
+    }
+    return 0;
+}
+
+/* See mktxlo_context_revoke_irqs(). */
+inline fun mktxlo_context_restore_irqs(1 context, 1 info)
+{
+    return 0;
+}
+
+inline fun mktxlo_context_restore_mappings(1 context)
+{
+    mktxlo_cap_grant_vspace_access();
+    var count = mktxlo_ctxt_mapping_count(context);
+    var index = 0;
+    while (index < count) {
+        var state = mktxlo_ctxt_mapping_state(context, index);
+        if (state == XRT_STATE_KEEP) {
+            mktxlo_ctxt_set_mapping_state(context, index, XRT_STATE_USED);
+        }
+        if (state == XRT_STATE_ALLOWED) {
+            var resource = mktxlo_ctxt_mapping_resource(context, index);
+            mktxlo_cap_restore_mapping(resource);
+            mktxlo_ctxt_set_mapping_state(context, index, XRT_STATE_USED);
+        }
+        index = index + 1;
+    }
+    mktxlo_cap_revoke_vspace_access();
+    return 0;
+}
+
+inline fun mktxlo_context_revoke(1 context, 1 info)
+{
+    var first_switch = mktxlo_context_is_first_switch(context);
+    if (first_switch != 0) {
+        return 0;
+    }
+    mktxlo_context_revoke_notifications(context, info);
+    mktxlo_context_revoke_ppcs(context, info);
+    mktxlo_context_revoke_irqs(context, info);
+    return mktxlo_context_revoke_mappings(context);
+}
+
+inline fun mktxlo_context_restore(1 context, 1 info)
+{
+    mktxlo_context_restore_notifications(context, info);
+    mktxlo_context_restore_ppcs(context, info);
+    mktxlo_context_restore_irqs(context, info);
+    return mktxlo_context_restore_mappings(context);
+}
+
+fun mktxlo_context_refresh(1 info, 1 context, 1 request)
+{
+    var result = mktxlo_xrt_parse_header(request);
+    if (result != 0) {
+        return result;
+    }
+    result = mktxlo_xrt_populate(context, info, request);
+    if (result != 0) {
+        return result;
+    }
+    mktxlo_context_revoke(context, info);
+    mktxlo_context_restore(context, info);
+    mktxlo_cap_deprivilege();
+    return 0;
+}
+
+fun mktxlo_context_switch(1 info, 1 context, 1 request)
+{
+    var result = mktxlo_context_activate(context);
+    if (result != 0) {
+        return result;
+    }
+    return mktxlo_context_refresh(info, context, request);
+}

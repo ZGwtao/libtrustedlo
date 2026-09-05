@@ -377,23 +377,6 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
     return seL4_NoError;
 }
 
-/* Pancake calls this through FFI; capability operations stay in C. */
-void ffimktxlo_self_load_context_switch(unsigned char *c, long arg, unsigned char *a, long alen)
-{
-    (void)c;
-    (void)arg;
-    (void)a;
-    (void)alen;
-
-    void *txlo_info = (void *)tsldr_vm_layout.loader_metadata.base;
-    void *xrt_req_header = (void *)tsldr_vm_layout.txlo_xrt_req.base;
-    trustedlo_ctxt_t *context = (trustedlo_ctxt_t *)tsldr_vm_layout.loader_context.base;
-
-    if (mktxlo_context_switch(txlo_info, context, xrt_req_header) != seL4_NoError) {
-        microkit_internal_crash(-1);
-    }
-}
-
 /* Pancake calls this after it has loaded both ELF images. */
 void ffimktxlo_self_load_finish(unsigned char *c, long result, unsigned char *a, long alen)
 {
@@ -403,6 +386,9 @@ void ffimktxlo_self_load_finish(unsigned char *c, long result, unsigned char *a,
 
     if (result != seL4_NoError) {
         microkit_dbg_puts("libtrustedlo: Pancake payload load failed\n");
+        microkit_dbg_puts("libtrustedlo: Pancake error code ");
+        microkit_dbg_put32((uint32_t)result);
+        microkit_dbg_puts("\n");
         return;
     }
 

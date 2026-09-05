@@ -1,0 +1,300 @@
+/* SPDX-FileCopyrightText: 2026 UNSW */
+/* SPDX-License-Identifier: BSD-2-Clause */
+
+/* libtrustedlo.h ABI. */
+#define MICROKIT_MAX_CHANNELS 62
+#define XRT_REQUEST_MAX_ENTRIES (MICROKIT_MAX_CHANNELS * 3)
+#define XRT_STATE_UNSET 0
+#define XRT_STATE_ALLOWED 1
+#define XRT_STATE_USED 2
+#define XRT_STATE_KEEP 3
+#define XRT_TYPE_NOTIFICATION 1
+#define XRT_TYPE_PPC 2
+#define XRT_TYPE_IRQ 3
+#define XRT_TYPE_IOPORT 4
+#define XRT_TYPE_MEMORY 5
+
+/* trustedlo_xrtreq_header_t and xrt_entry_t. */
+#define XRT_REQUEST_HEADER_SIZE 16
+#define XRT_HEADER_TOTAL_OFFSET 0
+#define XRT_HEADER_SERIALISED_OFFSET 8
+#define XRT_ENTRY_SIZE 16
+#define XRT_ENTRY_TYPE_OFFSET 0
+#define XRT_ENTRY_DATA_OFFSET 8
+
+/* trustedlo_ctxt_t. */
+#define CTXT_MONITOR_FIELDS_SIZE 24
+#define CTXT_NOTIFICATIONS_OFFSET CTXT_MONITOR_FIELDS_SIZE
+#define CTXT_PPCS_OFFSET (CTXT_NOTIFICATIONS_OFFSET + MICROKIT_MAX_CHANNELS)
+#define CTXT_IRQS_OFFSET (CTXT_PPCS_OFFSET + MICROKIT_MAX_CHANNELS)
+#define CTXT_IOPORTS_OFFSET (CTXT_IRQS_OFFSET + MICROKIT_MAX_CHANNELS)
+#define CTXT_MAPPING_COUNT_OFFSET (CTXT_IOPORTS_OFFSET + MICROKIT_MAX_CHANNELS)
+#define CTXT_MAPPING_DATA_OFFSET (CTXT_MAPPING_COUNT_OFFSET + 8)
+#define CTXT_MAPPING_DATA_SIZE 8
+#define CTXT_MAPPING_STATE_OFFSET \
+    (CTXT_MAPPING_DATA_OFFSET + MICROKIT_MAX_CHANNELS * CTXT_MAPPING_DATA_SIZE)
+
+/* Packed dlg_delegator_t and dlg_resource_t. */
+#define DLG_RESOURCE_COUNT_OFFSET 2
+#define DLG_DELEGATOR_HEADER_SIZE 16
+#define DLG_RESOURCE_SIZE 22
+#define DLG_RESOURCE_KIND_OFFSET 0
+#define DLG_RESOURCE_SLOT_OFFSET 2
+#define DLG_RESOURCE_CAP_COUNT_OFFSET 4
+#define DLG_RESOURCE_ARG0_OFFSET 6
+#define DLG_KIND_NOTIFICATION 1
+#define DLG_KIND_PPC 2
+#define DLG_KIND_MEMORY 3
+#define DLG_KIND_IOPORT 4
+
+inline fun mktxlo_xrt_header_total(1 request)
+{
+    var value = 0;
+    !ldw value, request + XRT_HEADER_TOTAL_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_xrt_header_offset(1 request)
+{
+    var value = 0;
+    !ldw value, request + XRT_HEADER_SERIALISED_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_xrt_entry(1 request, 1 offset, 1 index)
+{
+    return request + offset + index * XRT_ENTRY_SIZE;
+}
+
+inline fun mktxlo_xrt_entry_type(1 entry)
+{
+    var value = 0;
+    !ld8 value, entry + XRT_ENTRY_TYPE_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_xrt_entry_data(1 entry)
+{
+    var value = 0;
+    !ldw value, entry + XRT_ENTRY_DATA_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_dlg_resource_count(1 info)
+{
+    var value = 0;
+    !ld16 value, info + DLG_RESOURCE_COUNT_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_dlg_resource(1 info, 1 index)
+{
+    return info + DLG_DELEGATOR_HEADER_SIZE + index * DLG_RESOURCE_SIZE;
+}
+
+inline fun mktxlo_dlg_resource_kind(1 resource)
+{
+    var value = 0;
+    !ld8 value, resource + DLG_RESOURCE_KIND_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_dlg_resource_slot(1 resource)
+{
+    var value = 0;
+    !ld16 value, resource + DLG_RESOURCE_SLOT_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_dlg_resource_cap_count(1 resource)
+{
+    var value = 0;
+    !ld16 value, resource + DLG_RESOURCE_CAP_COUNT_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_dlg_resource_arg0(1 resource)
+{
+    var value = 0;
+    !ldw value, resource + DLG_RESOURCE_ARG0_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_find_resource(1 info, 1 expected_kind, 1 expected_arg0)
+{
+    var count = mktxlo_dlg_resource_count(info);
+    var index = 0;
+    while (index < count) {
+        var resource = mktxlo_dlg_resource(info, index);
+        var kind = mktxlo_dlg_resource_kind(resource);
+        var arg0 = mktxlo_dlg_resource_arg0(resource);
+        if (kind == expected_kind && arg0 == expected_arg0) {
+            return resource;
+        }
+        index = index + 1;
+    }
+    return 0;
+}
+
+inline fun mktxlo_ctxt_state_addr(1 context, 1 field_offset, 1 index)
+{
+    return context + field_offset + index;
+}
+
+inline fun mktxlo_ctxt_state(1 context, 1 field_offset, 1 index)
+{
+    var addr = mktxlo_ctxt_state_addr(context, field_offset, index);
+    var value = 0;
+    !ld8 value, addr;
+    return value;
+}
+
+inline fun mktxlo_ctxt_set_state(1 context, 1 field_offset, 1 index, 1 state)
+{
+    var addr = mktxlo_ctxt_state_addr(context, field_offset, index);
+    !st8 addr, state;
+    return 0;
+}
+
+inline fun mktxlo_ctxt_mapping_count(1 context)
+{
+    var value = 0;
+    !ldw value, context + CTXT_MAPPING_COUNT_OFFSET;
+    return value;
+}
+
+inline fun mktxlo_ctxt_set_mapping_count(1 context, 1 count)
+{
+    !stw context + CTXT_MAPPING_COUNT_OFFSET, count;
+    return 0;
+}
+
+inline fun mktxlo_ctxt_mapping_resource(1 context, 1 index)
+{
+    var value = 0;
+    !ldw value, context + CTXT_MAPPING_DATA_OFFSET + index * CTXT_MAPPING_DATA_SIZE;
+    return value;
+}
+
+inline fun mktxlo_ctxt_set_mapping_resource(1 context, 1 index, 1 resource)
+{
+    !stw context + CTXT_MAPPING_DATA_OFFSET + index * CTXT_MAPPING_DATA_SIZE, resource;
+    return 0;
+}
+
+inline fun mktxlo_ctxt_mapping_state(1 context, 1 index)
+{
+    var field_offset = CTXT_MAPPING_STATE_OFFSET;
+    return mktxlo_ctxt_state(context, field_offset, index);
+}
+
+inline fun mktxlo_ctxt_set_mapping_state(1 context, 1 index, 1 state)
+{
+    var field_offset = CTXT_MAPPING_STATE_OFFSET;
+    return mktxlo_ctxt_set_state(context, field_offset, index, state);
+}
+
+inline fun mktxlo_ctxt_allow_state(1 context, 1 field_offset, 1 index)
+{
+    var old_state = mktxlo_ctxt_state(context, field_offset, index);
+    var new_state = XRT_STATE_ALLOWED;
+    if (old_state == XRT_STATE_USED) {
+        new_state = XRT_STATE_KEEP;
+    }
+    return mktxlo_ctxt_set_state(context, field_offset, index, new_state);
+}
+
+inline fun mktxlo_xrt_allow_channel(1 context, 1 info, 1 data,
+                                    1 resource_kind, 1 field_offset)
+{
+    if (data >= MICROKIT_MAX_CHANNELS) {
+        return -1;
+    }
+    var resource = mktxlo_find_resource(info, resource_kind, data);
+    if (resource == 0) {
+        return -1;
+    }
+    return mktxlo_ctxt_allow_state(context, field_offset, data);
+}
+
+inline fun mktxlo_xrt_allow_mapping(1 context, 1 info, 1 vaddr)
+{
+    var count = mktxlo_ctxt_mapping_count(context);
+    if (count >= MICROKIT_MAX_CHANNELS) {
+        return -1;
+    }
+    var kind = DLG_KIND_MEMORY;
+    var resource = mktxlo_find_resource(info, kind, vaddr);
+    if (resource == 0) {
+        return -1;
+    }
+    var old_state = mktxlo_ctxt_mapping_state(context, count);
+    var new_state = XRT_STATE_ALLOWED;
+    if (old_state == XRT_STATE_USED) {
+        new_state = XRT_STATE_KEEP;
+    }
+    mktxlo_ctxt_set_mapping_state(context, count, new_state);
+    mktxlo_ctxt_set_mapping_resource(context, count, resource);
+    mktxlo_ctxt_set_mapping_count(context, count + 1);
+    return 0;
+}
+
+inline fun mktxlo_xrt_worker(1 context, 1 info, 1 entry)
+{
+    var typ = mktxlo_xrt_entry_type(entry);
+    var data = mktxlo_xrt_entry_data(entry);
+    if (typ == XRT_TYPE_NOTIFICATION) {
+        var kind = DLG_KIND_NOTIFICATION;
+        var field_offset = CTXT_NOTIFICATIONS_OFFSET;
+        return mktxlo_xrt_allow_channel(context, info, data, kind, field_offset);
+    }
+    if (typ == XRT_TYPE_PPC) {
+        var kind = DLG_KIND_PPC;
+        var field_offset = CTXT_PPCS_OFFSET;
+        return mktxlo_xrt_allow_channel(context, info, data, kind, field_offset);
+    }
+    if (typ == XRT_TYPE_IRQ) {
+        return -1;
+    }
+    if (typ == XRT_TYPE_IOPORT) {
+        var kind = DLG_KIND_IOPORT;
+        var field_offset = CTXT_IOPORTS_OFFSET;
+        return mktxlo_xrt_allow_channel(context, info, data, kind, field_offset);
+    }
+    if (typ == XRT_TYPE_MEMORY) {
+        return mktxlo_xrt_allow_mapping(context, info, data);
+    }
+    return -1;
+}
+
+fun mktxlo_xrt_parse_header(1 request)
+{
+    if (request == 0) {
+        return -1;
+    }
+    var total = mktxlo_xrt_header_total(request);
+    if (total > XRT_REQUEST_MAX_ENTRIES) {
+        return -1;
+    }
+    var offset = mktxlo_xrt_header_offset(request);
+    if (offset < XRT_REQUEST_HEADER_SIZE) {
+        return -1;
+    }
+    return 0;
+}
+
+fun mktxlo_xrt_populate(1 context, 1 info, 1 request)
+{
+    var total = mktxlo_xrt_header_total(request);
+    var offset = mktxlo_xrt_header_offset(request);
+    var index = 0;
+    while (index < total) {
+        var entry = mktxlo_xrt_entry(request, offset, index);
+        var result = mktxlo_xrt_worker(context, info, entry);
+        if (result != 0) {
+            return result;
+        }
+        index = index + 1;
+    }
+    return 0;
+}
