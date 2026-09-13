@@ -239,15 +239,85 @@ trustedlo_acrt_workerfunc(trustedlo_ctxt_t *ctxt, void *txlo_info, xrt_entry_t *
         break;
     }
     case XRT_TYPE_MEMORY: {
-        seL4_Word mapping_cookie = 0;
-        TSLDR_ASSERT(ctxt->allowed_mappings.mapping_count < MICROKIT_MAX_CHANNELS);
-        TSLDR_ASSERT(trustedlo_xrt_util_check_mapping(xrt_entry->data, txlo_info, &mapping_cookie));
-        trustedlo_ctxt_allow__mapping(ctxt, mapping_cookie);
+        /* Mapping requests are reconciled as a set before this pass. */
         break;
     }
     default:
         return -1;
     }
+    return seL4_NoError;
+}
+
+static seL4_Error trustedlo_xrt_util_reconcile_mappings(void *context,
+                                                        void *txlo_info,
+                                                        void *xrt_req_header)
+{
+    trustedlo_ctxt_t *ctxt = context;
+    const trustedlo_xrtreq_header_t *header = xrt_req_header;
+    const xrt_entry_t *entries =
+        (const xrt_entry_t *)((const char *)header + header->serialised_offset);
+    uint64_t old_count = ctxt->allowed_mappings.mapping_count;
+
+    /* Mark old mappings that are present in the new request so revoke keeps them. */
+    for (uint64_t i = 0; i < old_count; ++i) {
+        if (ctxt->allowed_mappings.mapping_state[i] != XRT_STATE_USED) {
+            continue;
+        }
+        for (uint64_t j = 0; j < header->total_num; ++j) {
+            seL4_Word cookie;
+
+            if (entries[j].type != XRT_TYPE_MEMORY) {
+                continue;
+            }
+            TSLDR_ASSERT(
+                trustedlo_xrt_util_check_mapping(entries[j].data, txlo_info, &cookie));
+            if (ctxt->allowed_mappings.mapping_data[i] == cookie) {
+                ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_KEEP;
+                break;
+            }
+        }
+    }
+
+    /* This removes only old mappings not present in the new request. */
+    trustedlo_xrt_util_revoke_mappings(ctxt);
+
+    /* Compact kept mappings in place before appending newly requested mappings. */
+    uint64_t next = 0;
+    for (uint64_t i = 0; i < old_count; ++i) {
+        if (ctxt->allowed_mappings.mapping_state[i] == XRT_STATE_KEEP) {
+            ctxt->allowed_mappings.mapping_data[next] = ctxt->allowed_mappings.mapping_data[i];
+            ctxt->allowed_mappings.mapping_state[next] = XRT_STATE_KEEP;
+            next++;
+        }
+    }
+
+    for (uint64_t i = 0; i < header->total_num; ++i) {
+        seL4_Word cookie;
+        bool already_kept = false;
+
+        if (entries[i].type != XRT_TYPE_MEMORY) {
+            continue;
+        }
+        TSLDR_ASSERT(trustedlo_xrt_util_check_mapping(entries[i].data, txlo_info, &cookie));
+        for (uint64_t j = 0; j < next; ++j) {
+            if (ctxt->allowed_mappings.mapping_data[j] == cookie) {
+                already_kept = true;
+                break;
+            }
+        }
+        if (!already_kept) {
+            TSLDR_ASSERT(next < MICROKIT_MAX_CHANNELS);
+            ctxt->allowed_mappings.mapping_data[next] = cookie;
+            ctxt->allowed_mappings.mapping_state[next] = XRT_STATE_ALLOWED;
+            next++;
+        }
+    }
+    for (uint64_t i = next; i < old_count; ++i) {
+        ctxt->allowed_mappings.mapping_data[i] = 0;
+        ctxt->allowed_mappings.mapping_state[i] = XRT_STATE_UNSET;
+    }
+    ctxt->allowed_mappings.mapping_count = next;
+
     return seL4_NoError;
 }
 
@@ -257,6 +327,10 @@ seL4_Error trustedlo_xrt_util_populate_xrts(void *context, void *txlo_info, void
     const trustedlo_xrtreq_header_t *header = xrt_req_header;
     xrt_entry_t *xrt_entry_list = NULL;
     uint64_t xrt_entry_num;
+
+    /* Mappings are compact cookie lists, so reconcile them by identity first. */
+    TRY_OR_RETURN_ERROR(
+        trustedlo_xrt_util_reconcile_mappings(context, txlo_info, xrt_req_header));
 
     xrt_entry_num = header->total_num;
     xrt_entry_list = (xrt_entry_t *)((char *)(header) + (header->serialised_offset));

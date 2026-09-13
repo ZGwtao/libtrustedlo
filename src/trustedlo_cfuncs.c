@@ -86,8 +86,7 @@ static inline seL4_Error mktxlo_context_activate(trustedlo_ctxt_t *context)
         return -1;
     }
 
-    /* the only thing that needs to be renew for now. */
-    context->allowed_mappings.mapping_count = 0;
+    /* Mapping reconciliation needs the previous request until refresh. */
     return seL4_NoError;
 }
 
