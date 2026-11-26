@@ -1,0 +1,6 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: libtrustedlo
+
+Files: src/memory/x86_64/*
+Copyright: Newlib contributors
+License: LicenseRef-Newlib

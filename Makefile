@@ -66,6 +66,19 @@ export LIBTRUSTEDLO_PATH
 LIB_BUILD_DIR := $(BUILD_DIR)/libtrustedlo
 CFG_GEN_DIR := $(LIB_BUILD_DIR)/generated
 
+ifeq ($(findstring aarch64,$(TARGET)),aarch64)
+TSLDR_MEM_ARCH := aarch64
+else ifeq ($(findstring x86_64,$(TARGET)),x86_64)
+TSLDR_MEM_ARCH := x86_64
+else
+$(error Unsupported TARGET '$(TARGET)' for trusted loader memory routines)
+endif
+
+TSLDR_MEM_DIR := $(LIBTRUSTEDLO_PATH)/src/memory/$(TSLDR_MEM_ARCH)
+TSLDR_MEM_OBJS := \
+	$(LIB_BUILD_DIR)/memcpy.o \
+	$(LIB_BUILD_DIR)/memset.o
+
 LIBTRUSTEDLO := $(LIB_BUILD_DIR)/libtrustedlo.a
 LIB_SRC_DIR := $(LIBTRUSTEDLO_PATH)/src
 
@@ -119,6 +132,7 @@ VM_LAYOUT_LINKER_SCRIPT := \
 export CFG_GEN_DIR
 export VM_LAYOUT_HEADER
 export VM_LAYOUT_LINKER_SCRIPT
+export TSLDR_MEM_OBJS
 
 $(VM_LAYOUT_HEADER): $(VM_LAYOUT_CONFIG) $(VM_LAYOUT_GEN)
 	@mkdir -p $(dir $@)
@@ -185,7 +199,11 @@ $(LIB_BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.c  $(VM_LAYOUT_HEADER)
 	@mkdir -p $(dir $@)
 	$(CC) $(LIB_CFLAGS) -c $< -o $@
 
-$(LIBTRUSTEDLO): $(LIB_OBJECTS)
+$(LIB_BUILD_DIR)/%.o: $(TSLDR_MEM_DIR)/%.S
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH_CFLAGS) -I$(TSLDR_MEM_DIR) -c $< -o $@
+
+$(LIBTRUSTEDLO): $(LIB_OBJECTS) $(TSLDR_MEM_OBJS)
 	@mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
 

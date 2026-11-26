@@ -6,25 +6,22 @@
 
 #include <memory.h>
 
+/*
+ * The loader uses these wrappers in both standalone images and components
+ * which embed libtrustedlo.  Their link environment supplies the
+ * architecture-specific implementation vendored by libtrustedlo.
+ */
+extern void *memcpy(void *restrict dest, const void *restrict src, size_t n);
+extern void *memset(void *dest, int value, size_t n);
+
 void *tsldr_miscutil_memcpy(void *restrict dest, const void *restrict src, size_t n)
 {
-    unsigned char *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-
-    for (size_t i = 0; i < n; ++i) {
-        d[i] = s[i];
-    }
-    return dest;
+    return memcpy(dest, src, n);
 }
 
 void *tsldr_miscutil_memset(void *dest, int c, size_t n)
 {
-    unsigned char *d = (unsigned char *)dest;
-
-    for (size_t i = 0; i < n; ++i) {
-        d[i] = (unsigned char)c;
-    }
-    return dest;
+    return memset(dest, c, n);
 }
 
 int tsldr_miscutil_memcmp(const unsigned char *s1, const unsigned char *s2, int n)
