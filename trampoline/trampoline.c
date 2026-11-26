@@ -65,7 +65,13 @@ __attribute__((noreturn, used)) void trampoline_entry(const trampoline_args_t *a
     /* Before refreshing, call monitor to save valuable things. */
     trampoline_backup_trustedlo_context(args);
 
-    for (size_t i = REGION_TSLDR_STACK; i <= REGION_TSLDR_PROGRAM; ++i) {
+    /*
+     * Clear mutable per-deployment state before entering the client.  The
+     * loader program is immutable trusted code and the monitor reloads its
+     * ELF segments (including zeroing BSS) after termination, so wiping the
+     * entire 8 MiB program capacity here only adds memory-bandwidth cost.
+     */
+    for (size_t i = REGION_TSLDR_STACK; i <= REGION_TSLDR_CONTEXT; ++i) {
         tsldr_miscutil_memset((void *)args->regions[i].address, 0, args->regions[i].size);
     }
     entry_fn_t entry = (entry_fn_t)(uintptr_t)args->client_elf;
