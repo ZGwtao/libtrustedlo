@@ -250,6 +250,14 @@ bool tsldr_miscutil_load_elf(const Elf64_Ehdr *ehdr,
             seL4_Word bss_size = phdr[i].p_memsz - phdr[i].p_filesz;
             tsldr_miscutil_memset((char *)dest + phdr[i].p_filesz, 0, bss_size);
         }
+        //
+        // PF_X marks a segment that may be executed. Its contents were just
+        // written as data, so make those writes visible to instruction fetch
+        // before control can be transferred into the segment.
+        //
+        if ((phdr[i].p_flags & PF_X) != 0) {
+            tsldr_miscutil_ensure_i_and_dcache_coherency(dest, phdr[i].p_memsz);
+        }
     }
 
     return true;

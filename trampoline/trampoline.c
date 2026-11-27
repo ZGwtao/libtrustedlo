@@ -32,7 +32,9 @@ __attribute__((naked, noreturn)) static void jump_with_stack(void *stack, entry_
 
 __attribute__((naked, noreturn)) static void jump_with_stack(void *stack, entry_fn_t entry)
 {
-    __asm__ volatile("mov sp, x0\n\t"
+    __asm__ volatile("dsb ish\n\t"
+                     "isb\n\t"
+                     "mov sp, x0\n\t"
                      "br x1\n\t");
 }
 

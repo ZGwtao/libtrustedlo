@@ -13,6 +13,8 @@ void *tsldr_miscutil_memcpy(void *restrict dest, const void *restrict src, size_
 
 void *tsldr_miscutil_memset(void *dest, int value, size_t n);
 
+void tsldr_miscutil_ensure_i_and_dcache_coherency(void *start, size_t size);
+
 int tsldr_miscutil_memcmp(const unsigned char *lhs, const unsigned char *rhs, int n);
 
 int tsldr_miscutil_strcmp(const char *lhs, const char *rhs);
