@@ -351,10 +351,10 @@ mktxlo_fill_client_args(const txlo_info_t *info, const trustedlo_ctxt_t *context
 
     for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
         if (context->allowed_notifications[i] == XRT_STATE_USED) {
-            bitmap_opt_notifications |= (1 << i);
+            bitmap_opt_notifications |= ((seL4_Word)1 << i);
         }
         if (context->allowed_ppcs[i] == XRT_STATE_USED) {
-            bitmap_opt_ppcs |= (1 << i);
+            bitmap_opt_ppcs |= ((seL4_Word)1 << i);
         }
     }
 
